@@ -1,0 +1,165 @@
+const { app, BrowserWindow, ipcMain, screen } = require('electron')
+const path = require('node:path')
+
+const isDev = !app.isPackaged
+const PROTOCOL = 'chatoverlay'
+
+/** @type {import('electron').BrowserWindow | null} */
+let mainWindow = null
+let alwaysOnTopTimer = null
+
+function getPreloadPath() {
+  const rootDir =
+    path.basename(__dirname) === 'dist-electron'
+      ? __dirname
+      : path.join(__dirname, '..', 'dist-electron')
+  return path.join(rootDir, 'preload.cjs')
+}
+
+function assertAlwaysOnTop() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (process.platform === 'win32') {
+    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+    mainWindow.setAlwaysOnTop(true, 'screen-saver', 1)
+  } else if (process.platform === 'linux') {
+    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+    mainWindow.setAlwaysOnTop(true, 'pop-up-menu', 1)
+    mainWindow.setAlwaysOnTop(true, 'screen-saver', 1)
+  } else if (process.platform === 'darwin') {
+    mainWindow.setAlwaysOnTop(true, 'floating', 1)
+  } else {
+    mainWindow.setAlwaysOnTop(true, 'screen-saver', 1)
+  }
+}
+
+function startAlwaysOnTopRefresh() {
+  clearInterval(alwaysOnTopTimer)
+  alwaysOnTopTimer = setInterval(assertAlwaysOnTop, 1000)
+}
+
+function sendDeepLink(url) {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== `${PROTOCOL}:`) return
+    const pathPart = parsed.pathname.replace(/^\//, '') || parsed.hostname
+    if (pathPart !== 'verify') return
+    const userId = parsed.searchParams.get('userId')
+    const secret = parsed.searchParams.get('secret')
+    mainWindow.showInactive()
+    mainWindow.webContents.send('deep-link', { type: 'verify', userId, secret })
+  } catch {
+    // invalid url
+  }
+}
+
+function handleArgv(argv) {
+  const link = argv.find((arg) => arg.startsWith(`${PROTOCOL}://`))
+  if (link) sendDeepLink(link)
+}
+
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', (_event, argv) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.showInactive()
+    }
+    handleArgv(argv)
+  })
+}
+
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [path.resolve(process.argv[1])])
+  }
+} else {
+  app.setAsDefaultProtocolClient(PROTOCOL)
+}
+
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  sendDeepLink(url)
+})
+
+function createWindow() {
+  const { workArea } = screen.getPrimaryDisplay()
+
+  mainWindow = new BrowserWindow({
+    x: workArea.x,
+    y: workArea.y,
+    width: workArea.width,
+    height: workArea.height,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    focusable: false,
+    fullscreenable: false,
+    acceptFirstMouse: true,
+    thickFrame: false,
+    webPreferences: {
+      preload: getPreloadPath(),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  assertAlwaysOnTop()
+  mainWindow.setFocusable(false)
+  mainWindow.setIgnoreMouseEvents(true, { forward: true })
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173')
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+  }
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.showInactive()
+    startAlwaysOnTopRefresh()
+    handleArgv(process.argv)
+  })
+
+  mainWindow.on('blur', assertAlwaysOnTop)
+  mainWindow.on('hide', assertAlwaysOnTop)
+  mainWindow.on('show', assertAlwaysOnTop)
+  mainWindow.on('focus', assertAlwaysOnTop)
+
+  mainWindow.on('closed', () => {
+    clearInterval(alwaysOnTopTimer)
+    alwaysOnTopTimer = null
+    mainWindow = null
+  })
+}
+
+ipcMain.on('set-ignore-mouse-events', (_event, ignore, options) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.setIgnoreMouseEvents(!!ignore, options ?? { forward: true })
+})
+
+ipcMain.on('set-focusable', (_event, focusable) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.setFocusable(!!focusable)
+  if (focusable) {
+    mainWindow.webContents.focus()
+  }
+  assertAlwaysOnTop()
+})
+
+ipcMain.on('keep-on-top', () => {
+  assertAlwaysOnTop()
+})
+
+app.whenReady().then(createWindow)
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow()
+})

@@ -1,0 +1,78 @@
+{
+  "name": "chat-overlay",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Roblox-style liquid glass floating chat overlay",
+  "author": "Chat Overlay",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && env -u ELECTRON_RUN_AS_NODE electron . --no-sandbox\"",
+    "dev:web": "vite --host",
+    "build": "tsc -b && vite build && node -e \"require('node:fs').cpSync('electron/main.cjs','dist-electron/main.cjs')\"",
+    "build:electron": "npm run build && electron-builder",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "setup:appwrite": "node scripts/setup-appwrite.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.14.4",
+    "appwrite": "^26.1.0",
+    "bad-words": "^4.0.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.1",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
+    "node-appwrite": "^26.2.0",
+    "oxlint": "^1.69.0",
+    "tailwindcss": "^4.3.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.0",
+    "vite-plugin-electron": "^1.1.0",
+    "vite-plugin-electron-renderer": "^1.0.0",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "com.chatoverlay.app",
+    "productName": "Chat Overlay",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "extraMetadata": {
+      "main": "dist-electron/main.cjs"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "protocols": [
+      {
+        "name": "Chat Overlay",
+        "schemes": ["chatoverlay"]
+      }
+    ]
+  }
+}

@@ -112,7 +112,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: null,
         email: null,
         isAuthenticated: false,
-        needsEmailVerification: false,
         isLoading: false,
       })
     } catch (err) {

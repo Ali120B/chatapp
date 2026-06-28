@@ -20,12 +20,7 @@ export interface SessionState {
   needsVerification: boolean
 }
 
-function verificationRedirectUrl(): string {
-  if (typeof window !== 'undefined' && window.electronAPI) {
-    return 'chatoverlay://verify'
-  }
-  return `${window.location.origin}/verify`
-}
+
 
 async function getAuthAccount() {
   return account.get()

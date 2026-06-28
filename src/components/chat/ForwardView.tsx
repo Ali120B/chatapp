@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { GlassPanel } from '@/components/glass/GlassPanel'
 import { useAuthStore } from '@/store/authStore'
 import { useChatStore } from '@/store/chatStore'
+import { useFriendsStore } from '@/store/friendsStore'
 import { useUiStore } from '@/store/uiStore'
 import { MOCK_USERS } from '@/services/mock/data'
+import { getChatDisplayName } from '@/utils/chatDisplay'
 import type { Message } from '@/types'
 
 export function ForwardView() {
   const user = useAuthStore((s) => s.user)
   const chats = useChatStore((s) => s.chats)
+  const friends = useFriendsStore((s) => s.friends)
   const messagesByChatId = useChatStore((s) => s.messagesByChatId)
   const forwardMessages = useChatStore((s) => s.forwardMessages)
   const selectChat = useChatStore((s) => s.selectChat)
@@ -27,10 +30,13 @@ export function ForwardView() {
       .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime())
   }, [forwardPayload, messagesByChatId])
 
+  const profileById = useMemo(() => new Map(friends.map((f) => [f.userId, f])), [friends])
+
   const targets = chats.filter((chat) => {
     if (!forwardPayload || chat.$id === forwardPayload.sourceChatId) return false
+    const displayName = user ? getChatDisplayName(chat, user, profileById) : ''
     if (!query.trim()) return true
-    return (chat.name ?? '').toLowerCase().includes(query.toLowerCase())
+    return displayName.toLowerCase().includes(query.toLowerCase())
   })
 
   const handleCancel = () => {
@@ -117,21 +123,24 @@ export function ForwardView() {
 
         <ul className="flex flex-col gap-1" role="list">
           {targets.length > 0 ? (
-            targets.map((chat) => (
-              <li key={chat.$id}>
-                <button
-                  type="button"
-                  disabled={sending}
-                  onClick={() => void handleForwardTo(chat.$id)}
-                  className="glass-chip mb-1 flex w-full items-center gap-2.5 px-2.5 py-2 text-left transition-colors hover:bg-white/8 disabled:opacity-40"
-                >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]/20 text-sm font-medium text-[var(--color-accent)]">
-                    {(chat.name ?? '?')[0]?.toUpperCase()}
-                  </div>
-                  <span className="truncate text-sm text-white">{chat.name ?? 'Direct Message'}</span>
-                </button>
-              </li>
-            ))
+            targets.map((chat) => {
+              const displayName = user ? getChatDisplayName(chat, user, profileById) : 'Direct Message'
+              return (
+                <li key={chat.$id}>
+                  <button
+                    type="button"
+                    disabled={sending}
+                    onClick={() => void handleForwardTo(chat.$id)}
+                    className="glass-chip mb-1 flex w-full items-center gap-2.5 px-2.5 py-2 text-left transition-colors hover:bg-white/8 disabled:opacity-40"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent)]/20 text-sm font-medium text-[var(--color-accent)]">
+                      {(displayName)[0]?.toUpperCase() ?? '?'}
+                    </div>
+                    <span className="truncate text-sm text-white">{displayName}</span>
+                  </button>
+                </li>
+              )
+            })
           ) : (
             <li className="py-4 text-center text-xs text-[#A0A4A8]">No chats match your search.</li>
           )}

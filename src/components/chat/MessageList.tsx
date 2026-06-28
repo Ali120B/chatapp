@@ -4,6 +4,7 @@ import { GlassPanel } from '@/components/glass/GlassPanel'
 import { Avatar } from '@/components/common/Avatar'
 import { MessageContextMenu, type AnchorRect } from './MessageContextMenu'
 import { PollMessage } from './PollMessage'
+import { storage, APPWRITE_CONFIG } from '@/services/appwrite'
 
 interface ReplyQuoteProps {
   senderName: string
@@ -72,6 +73,7 @@ export function MessageBubble({
   const isPoll = message.messageType === 'poll' && message.pollData
   const isShort = !isPoll && displayContent.length < 28 && !replyQuote
   const reactionEntries = Object.entries(message.reactions ?? {}).filter(([, users]) => users.length > 0)
+  const imageUrl = message.imageFileId ? storage.getFileView(APPWRITE_CONFIG.storageBucket, message.imageFileId) : null
 
   return (
     <div
@@ -131,6 +133,13 @@ export function MessageBubble({
           )}
           {message.isEncrypted && !isPoll && !displayContent.startsWith('🔒') && (
             <span className="mr-1 text-[10px]" aria-hidden="true">🔒</span>
+          )}
+          {imageUrl && (
+            <img 
+              src={String(imageUrl)} 
+              alt="Attached" 
+              className="mb-1 max-h-[180px] max-w-[180px] rounded object-cover" 
+            />
           )}
           {isPoll && message.pollData ? (
             <>

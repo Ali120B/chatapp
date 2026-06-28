@@ -42,7 +42,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const result = await appwriteAuthService.login(email, password)
       if (result.needsVerification) {
-        await appwriteAuthService.logout()
         set({
           email: result.email,
           needsEmailVerification: true,
@@ -73,7 +72,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const result = await appwriteAuthService.signup(email, password, username)
       if (result.needsVerification) {
-        await appwriteAuthService.logout()
         set({
           email: result.email,
           needsEmailVerification: true,

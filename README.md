@@ -70,7 +70,5 @@ Message menus are portaled to the document body and anchored to the message bubb
 
 ## Still in progress
 
-- Message reactions (UI only)
-- Forward / Pin / Info menu actions (stubs)
+- Forward actions (stubs)
 - Image rendering in message bubbles
-- Live Appwrite end-to-end testing

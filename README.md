@@ -68,7 +68,3 @@ Message menus are portaled to the document body and anchored to the message bubb
 | `../implementation_plan.md` | Feature plan + completion table |
 | `../current_task.md` / `../new_task.md` | Checklist with tick status |
 
-## Still in progress
-
-- Forward actions (stubs)
-- Image rendering in message bubbles

@@ -10,12 +10,10 @@ interface AuthState {
   isLoading: boolean
   error: string | null
   isAuthenticated: boolean
-  needsEmailVerification: boolean
   login: (email: string, password: string) => Promise<void>
   signup: (email: string, password: string, username: string) => Promise<void>
   logout: () => Promise<void>
   restoreSession: () => Promise<void>
-  resendVerification: () => Promise<void>
   deleteAccount: () => Promise<void>
   updateAvatar: (file: File) => Promise<void>
   clearError: () => void
@@ -33,28 +31,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
   error: null,
   isAuthenticated: false,
-  needsEmailVerification: false,
 
   login: async (email, password) => {
     requireConfigured()
     set({ isLoading: true, error: null })
     try {
       const result = await appwriteAuthService.login(email, password)
-      if (result.needsVerification) {
-        set({
-          email: result.email,
-          needsEmailVerification: true,
-          isAuthenticated: false,
-          user: null,
-          isLoading: false,
-        })
-        return
-      }
       set({
         user: result.user,
         email: result.email,
         isAuthenticated: true,
-        needsEmailVerification: false,
         isLoading: false,
       })
     } catch (err) {
@@ -70,21 +56,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const result = await appwriteAuthService.signup(email, password, username)
-      if (result.needsVerification) {
-        set({
-          email: result.email,
-          needsEmailVerification: true,
-          isAuthenticated: false,
-          user: null,
-          isLoading: false,
-        })
-        return
-      }
       set({
         user: result.user,
         email: result.email,
         isAuthenticated: true,
-        needsEmailVerification: false,
         isLoading: false,
       })
     } catch (err) {
@@ -101,7 +76,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: null,
       email: null,
       isAuthenticated: false,
-      needsEmailVerification: false,
     })
   },
 
@@ -114,23 +88,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ isLoading: false })
         return
       }
-      if (session.needsVerification) {
-        set({
-          email: session.email,
-          needsEmailVerification: true,
-          isAuthenticated: false,
-          user: null,
-          isLoading: false,
-        })
-        return
-      }
       const user = await appwriteAuthService.getCurrentUser()
       if (user) {
         set({
           user,
           email: session.email,
           isAuthenticated: true,
-          needsEmailVerification: false,
           isLoading: false,
         })
       } else {
@@ -138,19 +101,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     } catch {
       set({ isLoading: false })
-    }
-  },
-
-  resendVerification: async () => {
-    set({ isLoading: true, error: null })
-    try {
-      await appwriteAuthService.resendVerification()
-      set({ isLoading: false })
-    } catch (err) {
-      set({
-        error: err instanceof Error ? err.message : 'Could not resend email',
-        isLoading: false,
-      })
     }
   },
 

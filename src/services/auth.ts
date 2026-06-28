@@ -35,7 +35,7 @@ export const appwriteAuthService = {
   async login(email: string, password: string): Promise<LoginResult> {
     await account.createEmailPasswordSession(email, password)
     const authUser = await getAuthAccount()
-    const needsVerification = authUser.emailVerification === false
+    const needsVerification = false
     const profile = await getOrCreateProfile(authUser.$id, authUser.name ?? email)
     return { user: profile, email, needsVerification }
   },
@@ -48,14 +48,7 @@ export const appwriteAuthService = {
     await account.create(ID.unique(), email, password, username)
     await account.createEmailPasswordSession(email, password)
     const authUser = await getAuthAccount()
-    const needsVerification = authUser.emailVerification === false
-    if (needsVerification) {
-      try {
-        await account.createVerification(verificationRedirectUrl())
-      } catch {
-        // verification email may fail if SMTP not configured
-      }
-    }
+    const needsVerification = false
     const profile = await createProfile(authUser.$id, username)
     return { user: profile, email, needsVerification }
   },
@@ -66,7 +59,7 @@ export const appwriteAuthService = {
       const authUser = await getAuthAccount()
       return {
         email: authUser.email,
-        needsVerification: authUser.emailVerification === false,
+        needsVerification: false,
       }
     } catch {
       return null
@@ -77,7 +70,6 @@ export const appwriteAuthService = {
     if (!isAppwriteConfigured()) return null
     try {
       const authUser = await getAuthAccount()
-      if (authUser.emailVerification === false) return null
       const doc = await databases.getDocument(
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.users,
@@ -95,14 +87,6 @@ export const appwriteAuthService = {
     } catch {
       // session may already be gone
     }
-  },
-
-  async resendVerification(): Promise<void> {
-    await account.createVerification(verificationRedirectUrl())
-  },
-
-  async completeEmailVerification(userId: string, secret: string): Promise<void> {
-    await account.updateVerification(userId, secret)
   },
 
   async deleteAccount(): Promise<void> {

@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { FloatingBubble } from '@/components/overlay/FloatingBubble'
 import { ChatWindow } from '@/components/overlay/ChatWindow'
 import { AuthView } from '@/components/auth/AuthView'
-import { EmailVerificationPending } from '@/components/auth/EmailVerificationPending'
-import { VerifyEmailView } from '@/components/auth/VerifyEmailView'
 import { HomeView } from '@/components/home/HomeView'
 import { ChatView } from '@/components/chat/ChatView'
 import { GroupDetailsView } from '@/components/chat/GroupDetailsView'
@@ -39,7 +37,6 @@ function AuthenticatedContent() {
 
 export default function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const needsEmailVerification = useAuthStore((s) => s.needsEmailVerification)
   const user = useAuthStore((s) => s.user)
   const restoreSession = useAuthStore((s) => s.restoreSession)
   const isWindowOpen = useUiStore((s) => s.isWindowOpen)
@@ -52,22 +49,6 @@ export default function App() {
   const loadChats = useChatStore((s) => s.loadChats)
   const purgeExpiredTempChats = useChatStore((s) => s.purgeExpiredTempChats)
   const initTheme = useThemeStore((s) => s.initTheme)
-
-  const [verifyTick, setVerifyTick] = useState(0)
-  const isVerifyRoute =
-    window.location.pathname === '/verify' || window.location.search.includes('userId=')
-
-  useEffect(() => {
-    const unsub = window.electronAPI?.onDeepLink?.((payload) => {
-      if (payload.type !== 'verify' || !payload.userId || !payload.secret) return
-      const q = new URLSearchParams({ userId: payload.userId, secret: payload.secret })
-      window.history.replaceState({}, '', `/verify?${q}`)
-      useUiStore.getState().openWindow()
-      setVerifyTick((n) => n + 1)
-    })
-    return unsub
-  }, [])
-  void verifyTick
 
   useElectronResize(isWindowOpen)
   useMousePassthrough()
@@ -172,15 +153,7 @@ export default function App() {
       <FloatingBubble unreadCount={totalUnread} />
       <ChatWindow>
         <div key={activeView} className="h-full">
-          {isVerifyRoute ? (
-            <VerifyEmailView />
-          ) : needsEmailVerification ? (
-            <EmailVerificationPending />
-          ) : isAuthenticated ? (
-            <AuthenticatedContent />
-          ) : (
-            <AuthView />
-          )}
+          {isAuthenticated ? <AuthenticatedContent /> : <AuthView />}
         </div>
       </ChatWindow>
     </>

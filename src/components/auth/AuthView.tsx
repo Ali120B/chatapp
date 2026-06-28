@@ -8,7 +8,7 @@ export function AuthView() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
-  const { login, signup, loginWithGoogle, isLoading, error, clearError } = useAuthStore()
+  const { login, signup, isLoading, error, clearError } = useAuthStore()
   const configured = isAppwriteConfigured()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -108,21 +108,6 @@ export function AuthView() {
           {isLoading ? 'Loading...' : mode === 'login' ? 'Sign In' : 'Create Account'}
         </button>
       </form>
-
-      <div className="my-3 flex w-full items-center gap-2">
-        <div className="h-px flex-1 bg-white/10" />
-        <span className="text-[10px] text-[#A0A4A8]">or</span>
-        <div className="h-px flex-1 bg-white/10" />
-      </div>
-
-      <button
-        type="button"
-        disabled={isLoading || !configured}
-        onClick={() => void loginWithGoogle()}
-        className="glass-pill w-full py-2.5 text-sm font-medium text-white transition-opacity hover:bg-white/8 disabled:opacity-50"
-      >
-        Continue with Google
-      </button>
     </div>
   )
 }

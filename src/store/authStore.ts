@@ -13,7 +13,6 @@ interface AuthState {
   needsEmailVerification: boolean
   login: (email: string, password: string) => Promise<void>
   signup: (email: string, password: string, username: string) => Promise<void>
-  loginWithGoogle: () => Promise<void>
   logout: () => Promise<void>
   restoreSession: () => Promise<void>
   resendVerification: () => Promise<void>
@@ -104,19 +103,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isAuthenticated: false,
       needsEmailVerification: false,
     })
-  },
-
-  loginWithGoogle: async () => {
-    requireConfigured()
-    set({ isLoading: true, error: null })
-    try {
-      await appwriteAuthService.loginWithGoogle()
-    } catch (err) {
-      set({
-        error: err instanceof Error ? err.message : 'Google login failed',
-        isLoading: false,
-      })
-    }
   },
 
   restoreSession: async () => {

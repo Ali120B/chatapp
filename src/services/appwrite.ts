@@ -5,7 +5,6 @@ import {
   Storage,
   ID,
   Query,
-  OAuthProvider,
   type Models,
 } from 'appwrite'
 
@@ -35,4 +34,4 @@ export function isAppwriteConfigured(): boolean {
   return Boolean(projectId && projectId !== 'your_project_id')
 }
 
-export { ID, Query, OAuthProvider, type Models }
+export { ID, Query, type Models }

@@ -4,7 +4,6 @@ import {
   storage,
   APPWRITE_CONFIG,
   ID,
-  OAuthProvider,
   isAppwriteConfigured,
 } from './appwrite'
 import type { UserProfile } from '@/types'
@@ -96,11 +95,6 @@ export const appwriteAuthService = {
     } catch {
       // session may already be gone
     }
-  },
-
-  async loginWithGoogle(): Promise<void> {
-    const origin = window.location.origin + '/'
-    await account.createOAuth2Session(OAuthProvider.Google, origin, origin)
   },
 
   async resendVerification(): Promise<void> {

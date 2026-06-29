@@ -15,5 +15,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('deep-link', handler)
     return () => ipcRenderer.removeListener('deep-link', handler)
   },
+  onGlobalFocusShortcut: (callback) => {
+    const handler = () => callback()
+    ipcRenderer.on('global-focus-shortcut', handler)
+    return () => ipcRenderer.removeListener('global-focus-shortcut', handler)
+  },
   platform: process.platform,
 })

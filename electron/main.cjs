@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron')
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, Menu, nativeImage, Tray } = require('electron')
 const path = require('node:path')
 const { autoUpdater } = require('electron-updater')
 
@@ -25,6 +25,62 @@ autoUpdater.on('update-downloaded', () => {
 /** @type {import('electron').BrowserWindow | null} */
 let mainWindow = null
 let alwaysOnTopTimer = null
+/** @type {import('electron').Tray | null} */
+let tray = null
+
+
+function getTrayIconPath() {
+  return path.join(__dirname, '..', 'build', 'icon.png')
+}
+
+function focusOverlay() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.setFocusable(true)
+  mainWindow.show()
+  mainWindow.focus()
+  assertAlwaysOnTop()
+}
+
+function handleGlobalFocusShortcut() {
+  focusOverlay()
+  mainWindow?.webContents.send('global-focus-shortcut')
+}
+
+function createTray() {
+  if (process.platform !== 'win32' || tray) return
+
+  const image = nativeImage.createFromPath(getTrayIconPath())
+  tray = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image)
+  tray.setToolTip('Chat Overlay')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'Show Chat Overlay',
+        click: () => {
+          focusOverlay()
+          mainWindow?.webContents.send('global-focus-shortcut')
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Close (Quit)',
+        click: () => app.quit(),
+      },
+    ]),
+  )
+  tray.on('click', () => {
+    focusOverlay()
+  })
+}
+
+function registerGlobalShortcuts() {
+  globalShortcut.unregisterAll()
+  const registered = globalShortcut.register('Alt+Space', handleGlobalFocusShortcut)
+  if (!registered) {
+    console.warn('Failed to register Alt+Space global shortcut')
+  }
+}
 
 function getPreloadPath() {
   const rootDir =
@@ -175,12 +231,18 @@ ipcMain.on('keep-on-top', () => {
 
 app.whenReady().then(() => {
   createWindow()
+  createTray()
+  registerGlobalShortcuts()
   
   if (!isDev && process.platform === 'win32') {
     autoUpdater.checkForUpdatesAndNotify().catch((err) => {
       console.error('Failed to check for updates:', err)
     })
   }
+})
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', () => {

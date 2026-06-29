@@ -143,7 +143,7 @@ export default function App() {
       if (activeChatId) void loadMessages(activeChatId)
     }
 
-    const interval = setInterval(syncActiveChat, 3_000)
+    const interval = setInterval(syncActiveChat, 2_000)
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') syncActiveChat()
     }
@@ -158,18 +158,43 @@ export default function App() {
   }, [isAuthenticated, loadChats, loadMessages])
 
   useEffect(() => {
+    const focusMessageInput = () => {
+      window.electronAPI?.setFocusable?.(true)
+      window.setTimeout(() => {
+        const input = document.querySelector<HTMLInputElement>('[aria-label="Message input"]')
+        input?.focus()
+      }, 0)
+    }
+
+    const focusAppOrInput = () => {
+      useUiStore.getState().openWindow()
+      if (useUiStore.getState().activeView === 'chat' && useChatStore.getState().activeChatId) {
+        focusMessageInput()
+      } else {
+        window.electronAPI?.setFocusable?.(true)
+      }
+    }
+
+    const unsubscribeGlobalFocus = window.electronAPI?.onGlobalFocusShortcut?.(focusAppOrInput)
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === '/' && isWindowOpen && isAuthenticated) {
         e.preventDefault()
-        const input = document.querySelector<HTMLInputElement>('[aria-label="Message input"]')
-        input?.focus()
+        focusMessageInput()
+      }
+      if (e.altKey && e.code === 'Space') {
+        e.preventDefault()
+        focusAppOrInput()
       }
       if (e.key === 'Escape' && isWindowOpen) {
         useUiStore.getState().closeWindow()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      unsubscribeGlobalFocus?.()
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [isWindowOpen, isAuthenticated])
 
   return (

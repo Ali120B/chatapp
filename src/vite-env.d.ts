@@ -20,6 +20,7 @@ interface ElectronAPI {
   setFocusable?: (focusable: boolean) => void
   keepOnTop?: () => void
   onDeepLink?: (callback: (payload: { type: string; userId: string | null; secret: string | null }) => void) => () => void
+  onGlobalFocusShortcut?: (callback: () => void) => () => void
   platform: NodeJS.Platform
 }
 

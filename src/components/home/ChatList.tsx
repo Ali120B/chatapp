@@ -73,7 +73,9 @@ export function ChatList({
           <li key={chat.$id}>
             <button
               type="button"
-              onClick={() => {
+              onPointerDown={(e) => {
+                // Ensure left click
+                if (e.button !== 0) return;
                 if (deleteMode) {
                   onToggleChatSelect?.(chat.$id)
                   return

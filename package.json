@@ -1,7 +1,7 @@
 {
   "name": "orbix-chat",
   "private": true,
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "Roblox-style liquid glass floating chat overlay",
   "author": "Ali Bashmail <aliahmedbashmail@yandex.com>",
   "repository": {
@@ -24,6 +24,7 @@
     "@tanstack/react-virtual": "^3.14.4",
     "appwrite": "^26.1.0",
     "bad-words": "^4.0.0",
+    "electron-updater": "^6.8.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "zustand": "^5.0.14"
@@ -91,7 +92,9 @@
     "protocols": [
       {
         "name": "Chat Overlay",
-        "schemes": ["chatoverlay"]
+        "schemes": [
+          "chatoverlay"
+        ]
       }
     ]
   }

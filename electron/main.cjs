@@ -1,8 +1,26 @@
 const { app, BrowserWindow, ipcMain, screen } = require('electron')
 const path = require('node:path')
+const { autoUpdater } = require('electron-updater')
+
+// Optimizations for Windows (and other platforms) to reduce lag
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-background-timer-throttling')
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows')
+app.commandLine.appendSwitch('enable-gpu-rasterization')
+app.commandLine.appendSwitch('enable-zero-copy')
+app.commandLine.appendSwitch('ignore-gpu-blocklist')
 
 const isDev = !app.isPackaged
 const PROTOCOL = 'chatoverlay'
+
+// Auto updater config
+autoUpdater.autoDownload = true
+autoUpdater.autoInstallOnAppQuit = true
+
+autoUpdater.on('update-downloaded', () => {
+  // Install immediately if desired, or let it install on quit
+  autoUpdater.quitAndInstall(true, true)
+})
 
 /** @type {import('electron').BrowserWindow | null} */
 let mainWindow = null
@@ -105,6 +123,7 @@ function createWindow() {
       preload: getPreloadPath(),
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: false,
     },
   })
 
@@ -154,7 +173,15 @@ ipcMain.on('keep-on-top', () => {
   assertAlwaysOnTop()
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  createWindow()
+  
+  if (!isDev && process.platform === 'win32') {
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      console.error('Failed to check for updates:', err)
+    })
+  }
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()

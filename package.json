@@ -1,7 +1,7 @@
 {
   "name": "orbix-chat",
   "private": true,
-  "version": "3.0.0",
+  "version": "3.1.1",
   "description": "Roblox-style liquid glass floating chat overlay",
   "author": "Ali Bashmail <aliahmedbashmail@yandex.com>",
   "repository": {

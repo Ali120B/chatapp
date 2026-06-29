@@ -47,7 +47,7 @@ export function usePointerDrag({
         y: Math.max(0, Math.min(y, maxY)),
       }
     },
-    [bounds.height, bounds.width],
+    [bounds],
   )
 
   const handlePointerDown = useCallback(

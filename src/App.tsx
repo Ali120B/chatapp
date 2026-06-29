@@ -47,6 +47,7 @@ export default function App() {
   )
   const addIncomingMessage = useChatStore((s) => s.addIncomingMessage)
   const loadChats = useChatStore((s) => s.loadChats)
+  const loadMessages = useChatStore((s) => s.loadMessages)
   const purgeExpiredTempChats = useChatStore((s) => s.purgeExpiredTempChats)
   const initTheme = useThemeStore((s) => s.initTheme)
 
@@ -132,6 +133,29 @@ export default function App() {
       useChatStore.getState().applyChatUpdate,
     )
   }, [isAuthenticated, user, addIncomingMessage, loadChats])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    const syncActiveChat = () => {
+      const { activeChatId } = useChatStore.getState()
+      void loadChats()
+      if (activeChatId) void loadMessages(activeChatId)
+    }
+
+    const interval = setInterval(syncActiveChat, 3_000)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') syncActiveChat()
+    }
+    window.addEventListener('focus', syncActiveChat)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', syncActiveChat)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [isAuthenticated, loadChats, loadMessages])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

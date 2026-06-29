@@ -294,6 +294,7 @@ export function ChatView() {
       )}
 
       <MessageList
+        chatId={activeChatId}
         messages={messages}
         currentUserId={user.userId}
         getAvatar={getAvatar}

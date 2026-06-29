@@ -82,6 +82,11 @@ export function GroupDetailsView() {
       url: storage.getFilePreview(APPWRITE_CONFIG.storageBucket, m.imageFileId!),
     }))
 
+  const { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel } =
+    useOverlayDrag({
+      shouldStart: (e) => canDragFromHeaderTarget(e.target),
+    })
+
   if (!user || !chat) return null
 
   const isGroup = chat.type === 'group_temp' || chat.type === 'group_persist'
@@ -119,11 +124,6 @@ export function GroupDetailsView() {
     onAfterDelete: () => setView('home'),
     onAfterLeave: () => setView('home'),
   })
-
-  const { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel } =
-    useOverlayDrag({
-      shouldStart: (e) => canDragFromHeaderTarget(e.target),
-    })
 
   const toggleFriendSelection = (friendId: string) => {
     setSelectedFriendIds((prev) => {

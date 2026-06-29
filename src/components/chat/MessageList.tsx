@@ -193,6 +193,7 @@ export function MessageBubble({
 }
 
 interface MessageListProps {
+  chatId: string | null
   messages: Message[]
   currentUserId: string
   getAvatar: (userId: string) => string
@@ -214,6 +215,7 @@ interface MessageListProps {
 }
 
 export function MessageList({
+  chatId,
   messages,
   currentUserId,
   getAvatar,
@@ -241,6 +243,8 @@ export function MessageList({
   const [lastMessageId, setLastMessageId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const previousChatIdRef = useRef<string | null>(null)
+  const latestMessageId = messages[messages.length - 1]?.$id
 
   const messageById = Object.fromEntries(messages.map((m) => [m.$id, m]))
 
@@ -264,11 +268,19 @@ export function MessageList({
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
+    const isNewlyOpenedChat = previousChatIdRef.current !== chatId
+    previousChatIdRef.current = chatId
+    if (isNewlyOpenedChat) {
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
+      })
+      return
+    }
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
     if (nearBottom || messages.length <= 1) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
     }
-  }, [messages.length, messages[messages.length - 1]?.$id])
+  }, [chatId, messages.length, latestMessageId])
 
   const handleContextMenu = (
     _e: React.MouseEvent,

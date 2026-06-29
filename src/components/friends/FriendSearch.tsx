@@ -43,6 +43,7 @@ export function FriendSearch({
           onChange={(e) => onQueryChange(e.target.value)}
           className="w-full bg-transparent text-sm text-white placeholder-[#A0A4A8] outline-none"
           aria-label="Search users by username"
+          data-needs-focus
         />
       </GlassPanel>
 

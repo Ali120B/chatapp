@@ -1,5 +1,6 @@
 import {
   account,
+  client,
   databases,
   storage,
   APPWRITE_CONFIG,
@@ -20,7 +21,14 @@ export interface SessionState {
   needsVerification: boolean
 }
 
-
+async function setupJWT() {
+  try {
+    const jwt = await account.createJWT()
+    client.setJWT(jwt.jwt)
+  } catch (err) {
+    console.warn('Failed to set JWT for realtime', err)
+  }
+}
 
 async function getAuthAccount() {
   return account.get()
@@ -29,6 +37,7 @@ async function getAuthAccount() {
 export const appwriteAuthService = {
   async login(email: string, password: string): Promise<LoginResult> {
     await account.createEmailPasswordSession(email, password)
+    await setupJWT()
     const authUser = await getAuthAccount()
     const needsVerification = false
     const profile = await getOrCreateProfile(authUser.$id, authUser.name ?? email)
@@ -42,6 +51,7 @@ export const appwriteAuthService = {
   ): Promise<LoginResult> {
     await account.create(ID.unique(), email, password, username)
     await account.createEmailPasswordSession(email, password)
+    await setupJWT()
     const authUser = await getAuthAccount()
     const needsVerification = false
     const profile = await createProfile(authUser.$id, username)
@@ -52,6 +62,7 @@ export const appwriteAuthService = {
     if (!isAppwriteConfigured()) return null
     try {
       const authUser = await getAuthAccount()
+      await setupJWT()
       return {
         email: authUser.email,
         needsVerification: false,

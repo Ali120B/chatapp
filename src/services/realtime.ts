@@ -7,8 +7,6 @@ type MessageHandler = (message: Message) => void
 type MessageDeleteHandler = (chatId: string, messageId: string) => void
 type ChatHandler = (chat: Chat) => void
 
-let unsubscribe: (() => void) | null = null
-
 export function subscribeToRealtime(
   userId: string,
   isKnownChat: (chatId: string) => boolean,
@@ -17,13 +15,11 @@ export function subscribeToRealtime(
   onMessageDelete: MessageDeleteHandler,
   onChatUpdate: ChatHandler,
 ): () => void {
-  if (unsubscribe) unsubscribe()
-
   const dbId = APPWRITE_CONFIG.databaseId
   const msgCol = APPWRITE_CONFIG.collections.messages
   const chatCol = APPWRITE_CONFIG.collections.chats
 
-  unsubscribe = client.subscribe(
+  const unsubscribe = client.subscribe(
     [
       `databases.${dbId}.collections.${msgCol}.documents`,
       `databases.${dbId}.collections.${chatCol}.documents`,
@@ -66,10 +62,7 @@ export function subscribeToRealtime(
   )
 
   return () => {
-    if (unsubscribe) {
-      unsubscribe()
-      unsubscribe = null
-    }
+    unsubscribe()
   }
 }
 

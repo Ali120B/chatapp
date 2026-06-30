@@ -357,7 +357,7 @@ export default function App() {
           focusMessageInput()
         }
       }
-      if (e.altKey && e.shiftKey && e.code === 'Space') {
+      if (e.ctrlKey && e.key === '/') {
         e.preventDefault()
         focusAppOrInput()
       }

@@ -82,9 +82,9 @@ function createTray() {
 
 function registerGlobalShortcuts() {
   globalShortcut.unregisterAll()
-  const registered = globalShortcut.register('Alt+Shift+Space', handleGlobalFocusShortcut)
+  const registered = globalShortcut.register('CmdOrCtrl+Slash', handleGlobalFocusShortcut)
   if (!registered) {
-    console.warn('Failed to register Alt+Shift+Space global shortcut')
+    console.warn('Failed to register Ctrl+/ global shortcut')
   }
 }
 

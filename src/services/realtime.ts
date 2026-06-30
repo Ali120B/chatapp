@@ -85,6 +85,8 @@ function payloadToMessage(doc: Record<string, unknown>): Message {
       (doc.messageType as string | undefined) === 'poll'
         ? parsePoll(doc.pollData as string | undefined)
         : null,
+    editedAt: (doc.editedAt as string | null | undefined) ?? null,
+    readBy: (doc.readBy as string[] | undefined) ?? [],
   }
 }
 

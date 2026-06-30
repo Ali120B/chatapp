@@ -89,6 +89,8 @@ export interface Message {
   deletedForUserIds?: string[]
   messageType?: MessageType
   pollData?: PollData | null
+  editedAt?: string | null
+  readBy?: string[]
 }
 
 export interface Position {

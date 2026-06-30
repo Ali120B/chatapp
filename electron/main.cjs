@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, globalShortcut, Menu, nativeImage, Tray } = require('electron')
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, Menu, nativeImage, Tray, shell } = require('electron')
 const path = require('node:path')
 const { autoUpdater } = require('electron-updater')
 
@@ -13,12 +13,14 @@ app.commandLine.appendSwitch('ignore-gpu-blocklist')
 const isDev = !app.isPackaged
 const PROTOCOL = 'chatoverlay'
 
+const BUBBLE_SIZE = 48
+const WINDOW_SIZE = 200
+
 // Auto updater config
 autoUpdater.autoDownload = true
 autoUpdater.autoInstallOnAppQuit = true
 
 autoUpdater.on('update-downloaded', () => {
-  // Install immediately if desired, or let it install on quit
   autoUpdater.quitAndInstall(true, true)
 })
 
@@ -36,10 +38,14 @@ function getTrayIconPath() {
 function focusOverlay() {
   if (!mainWindow || mainWindow.isDestroyed()) return
   if (mainWindow.isMinimized()) mainWindow.restore()
+  assertAlwaysOnTop()
   mainWindow.setFocusable(true)
   mainWindow.show()
   mainWindow.focus()
-  assertAlwaysOnTop()
+  if (process.platform === 'win32') {
+    app.focus({ steal: true })
+    assertAlwaysOnTop()
+  }
 }
 
 function handleGlobalFocusShortcut() {
@@ -76,9 +82,9 @@ function createTray() {
 
 function registerGlobalShortcuts() {
   globalShortcut.unregisterAll()
-  const registered = globalShortcut.register('Alt+Space', handleGlobalFocusShortcut)
+  const registered = globalShortcut.register('Alt+Shift+Space', handleGlobalFocusShortcut)
   if (!registered) {
-    console.warn('Failed to register Alt+Space global shortcut')
+    console.warn('Failed to register Alt+Shift+Space global shortcut')
   }
 }
 
@@ -93,11 +99,8 @@ function getPreloadPath() {
 function assertAlwaysOnTop() {
   if (!mainWindow || mainWindow.isDestroyed()) return
   if (process.platform === 'win32') {
-    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
     mainWindow.setAlwaysOnTop(true, 'screen-saver', 1)
   } else if (process.platform === 'linux') {
-    mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-    mainWindow.setAlwaysOnTop(true, 'pop-up-menu', 1)
     mainWindow.setAlwaysOnTop(true, 'screen-saver', 1)
   } else if (process.platform === 'darwin') {
     mainWindow.setAlwaysOnTop(true, 'floating', 1)
@@ -160,18 +163,22 @@ app.on('open-url', (event, url) => {
 function createWindow() {
   const { workArea } = screen.getPrimaryDisplay()
 
+  // Small floating window at center-right of screen
+  const posX = workArea.x + workArea.width - WINDOW_SIZE - 16
+  const posY = workArea.y + 100
+
   mainWindow = new BrowserWindow({
-    x: workArea.x,
-    y: workArea.y,
-    width: workArea.width,
-    height: workArea.height,
+    x: posX,
+    y: posY,
+    width: WINDOW_SIZE,
+    height: WINDOW_SIZE,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
     hasShadow: false,
-    focusable: false,
+    focusable: true,
     fullscreenable: false,
     acceptFirstMouse: true,
     thickFrame: false,
@@ -184,8 +191,6 @@ function createWindow() {
   })
 
   assertAlwaysOnTop()
-  mainWindow.setFocusable(false)
-  mainWindow.setIgnoreMouseEvents(true, { forward: true })
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
@@ -211,18 +216,52 @@ function createWindow() {
   })
 }
 
-ipcMain.on('set-ignore-mouse-events', (_event, ignore, options) => {
-  if (!mainWindow || mainWindow.isDestroyed()) return
-  mainWindow.setIgnoreMouseEvents(!!ignore, options ?? { forward: true })
-})
-
 ipcMain.on('set-focusable', (_event, focusable) => {
   if (!mainWindow || mainWindow.isDestroyed()) return
   mainWindow.setFocusable(!!focusable)
   if (focusable) {
     mainWindow.webContents.focus()
+    mainWindow.focus()
+    if (process.platform === 'win32') {
+      app.focus({ steal: true })
+      assertAlwaysOnTop()
+    }
   }
   assertAlwaysOnTop()
+})
+
+ipcMain.on('set-window-position', (_event, x, y) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  mainWindow.setPosition(Math.round(x), Math.round(y))
+})
+
+ipcMain.handle('get-window-position', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return [0, 0]
+  return mainWindow.getPosition()
+})
+
+ipcMain.on('resize-overlay', (_event, width, height) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  const [currentX, currentY] = mainWindow.getPosition()
+  const [currentW, currentH] = mainWindow.getSize()
+
+  mainWindow.setSize(Math.round(width), Math.round(height))
+
+  // Anchor to bottom-center of current window position
+  const newX = currentX + (currentW - width) / 2
+  const newY = currentY + (currentH - height)
+  mainWindow.setPosition(Math.round(newX), Math.round(Math.max(0, newY)))
+})
+
+ipcMain.handle('open-external', (_event, url) => {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      shell.openExternal(url)
+    }
+  } catch {
+    // invalid url
+  }
 })
 
 ipcMain.on('keep-on-top', () => {

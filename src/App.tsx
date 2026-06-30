@@ -8,13 +8,20 @@ import { GroupDetailsView } from '@/components/chat/GroupDetailsView'
 import { ForwardView } from '@/components/chat/ForwardView'
 import { FriendsView } from '@/components/friends/FriendsView'
 import { SettingsView } from '@/components/settings/SettingsView'
+import { ToastContainer } from '@/components/common/ToastContainer'
+import { OfflineBanner } from '@/components/common/OfflineBanner'
 import { useAuthStore } from '@/store/authStore'
 import { useChatStore } from '@/store/chatStore'
 import { useUiStore } from '@/store/uiStore'
 import { useThemeStore } from '@/store/themeStore'
+import { useTypingStore } from '@/store/typingStore'
 import { useElectronResize } from '@/hooks/useElectronResize'
 import { useMousePassthrough } from '@/hooks/useMousePassthrough'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { subscribeToRealtime } from '@/services/realtime'
+import { presenceService } from '@/services/presence'
+import { typingService } from '@/services/typing'
+import { client, APPWRITE_CONFIG } from '@/services/appwrite'
 
 function AuthenticatedContent() {
   const activeView = useUiStore((s) => s.activeView)
@@ -50,6 +57,9 @@ export default function App() {
   const loadMessages = useChatStore((s) => s.loadMessages)
   const purgeExpiredTempChats = useChatStore((s) => s.purgeExpiredTempChats)
   const initTheme = useThemeStore((s) => s.initTheme)
+  const { isOnline } = useOnlineStatus()
+  const addTypingUser = useTypingStore((s) => s.addTypingUser)
+  const removeTypingUser = useTypingStore((s) => s.removeTypingUser)
 
   useElectronResize(isWindowOpen)
   useMousePassthrough()
@@ -108,6 +118,70 @@ export default function App() {
     return () => clearInterval(interval)
   }, [isAuthenticated, loadChats, purgeExpiredTempChats])
 
+  // Presence heartbeat
+  useEffect(() => {
+    if (!isAuthenticated || !user) return
+    void presenceService.startPresenceHeartbeat(user.userId)
+    return () => {
+      void presenceService.stopPresenceHeartbeat(user.userId)
+    }
+  }, [isAuthenticated, user])
+
+  // Typing indicators realtime subscription
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const dbId = APPWRITE_CONFIG.databaseId
+
+    const unsubscribe = client.subscribe(
+      `databases.${dbId}.collections.typing.documents`,
+      (response) => {
+        const payload = response.payload as Record<string, unknown>
+        const events = response.events
+        const chatId = payload.chatId as string
+        const userId = payload.userId as string
+        const username = payload.username as string
+        const expiresAt = payload.expiresAt as string
+
+        if (!chatId || !userId) return
+
+        if (events.some((e) => e.includes('.delete'))) {
+          removeTypingUser(chatId, userId)
+          return
+        }
+
+        if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+          removeTypingUser(chatId, userId)
+          return
+        }
+
+        addTypingUser(chatId, { userId, username })
+      },
+    )
+
+    return () => {
+      unsubscribe()
+    }
+  }, [isAuthenticated, addTypingUser, removeTypingUser])
+
+  // Clean up expired typing entries periodically
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const interval = setInterval(() => {
+      const { typingUsersByChatId } = useTypingStore.getState()
+      for (const [chatId, users] of Object.entries(typingUsersByChatId)) {
+        for (const u of users) {
+          // Only clear our own stale entries — remote entries are managed by their owners
+          if (u.userId === user?.userId) {
+            void typingService.clearTyping(chatId, u.userId).then(() => {
+              removeTypingUser(chatId, u.userId)
+            })
+          }
+        }
+      }
+    }, 10_000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated, user?.userId, removeTypingUser])
+
   useEffect(() => {
     if (!isAuthenticated || !user) return
 
@@ -134,6 +208,7 @@ export default function App() {
     )
   }, [isAuthenticated, user, addIncomingMessage, loadChats])
 
+  // Sync: visibility change + focus + 30s safety net (replaced 2s polling)
   useEffect(() => {
     if (!isAuthenticated) return
 
@@ -143,7 +218,7 @@ export default function App() {
       if (activeChatId) void loadMessages(activeChatId)
     }
 
-    const interval = setInterval(syncActiveChat, 2_000)
+    const interval = setInterval(syncActiveChat, 30_000)
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') syncActiveChat()
     }
@@ -179,10 +254,13 @@ export default function App() {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === '/' && isWindowOpen && isAuthenticated) {
-        e.preventDefault()
-        focusMessageInput()
+        const input = document.querySelector<HTMLInputElement>('[aria-label="Message input"]')
+        if (document.activeElement !== input) {
+          e.preventDefault()
+          focusMessageInput()
+        }
       }
-      if (e.altKey && e.code === 'Space') {
+      if (e.altKey && e.shiftKey && e.code === 'Space') {
         e.preventDefault()
         focusAppOrInput()
       }
@@ -201,10 +279,12 @@ export default function App() {
     <>
       <FloatingBubble unreadCount={totalUnread} />
       <ChatWindow>
-        <div key={activeView} className="h-full">
+        {!isOnline && <OfflineBanner />}
+        <div key={activeView} className="flex h-full flex-col">
           {isAuthenticated ? <AuthenticatedContent /> : <AuthView />}
         </div>
       </ChatWindow>
+      <ToastContainer />
     </>
   )
 }

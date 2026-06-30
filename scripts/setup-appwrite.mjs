@@ -48,6 +48,7 @@ const USER_COL = 'users'
 const FRIENDSHIPS_COL = 'friendships'
 const CHATS_COL = 'chats'
 const MESSAGES_COL = 'messages'
+const TYPING_COL = 'typing'
 const CHAT_IMAGES_BUCKET = 'chat-images'
 
 const USER_PERMS = [
@@ -253,6 +254,8 @@ async function main() {
   await ensureString(databases, USER_COL, 'avatarUrl', 2048, true)
   await ensureString(databases, USER_COL, 'avatarFileId', 36, false)
   await ensureString(databases, USER_COL, 'createdAt', 64, true)
+  await ensureString(databases, USER_COL, 'lastSeenAt', 64, true)
+  await ensureBool(databases, USER_COL, 'isOnline', true)
   await ensureIndex(databases, USER_COL, 'username_search', 'fulltext', ['username'], ['ASC'])
 
   await ensureCollection(databases, FRIENDSHIPS_COL, 'Friendships')
@@ -291,7 +294,16 @@ async function main() {
   await ensureString(databases, MESSAGES_COL, 'reactions', 4096, false)
   await ensureString(databases, MESSAGES_COL, 'messageType', 16, false)
   await ensureString(databases, MESSAGES_COL, 'pollData', 16384, false)
+  await ensureString(databases, MESSAGES_COL, 'editedAt', 64, false)
+  await ensureString(databases, MESSAGES_COL, 'readBy', 36, false, true)
   await ensureIndex(databases, MESSAGES_COL, 'chat_sent', 'key', ['chatId', 'sentAt'], ['ASC', 'DESC'])
+
+  console.log('\n  Typing collection:')
+  await ensureCollection(databases, TYPING_COL, 'Typing')
+  await ensureString(databases, TYPING_COL, 'chatId', 36, true)
+  await ensureString(databases, TYPING_COL, 'userId', 36, true)
+  await ensureString(databases, TYPING_COL, 'username', 64, true)
+  await ensureString(databases, TYPING_COL, 'expiresAt', 64, true)
 
   console.log('\nStorage:')
   await ensureBucket(storage, CHAT_IMAGES_BUCKET, 'Chat Images', 5, ['jpg', 'jpeg', 'png', 'gif', 'webp'])
@@ -301,9 +313,8 @@ async function main() {
   console.log(`
 Done! Next steps:
   1. In Appwrite Console → Auth → enable Email/Password
-  2. Databases → ${DATABASE_ID} → Settings → enable Realtime (messages + chats)
-  3. cd App && npm run dev
-  4. Sign up in the app (do NOT use Test Mode — it has been removed)
+  2. cd App && npm run dev
+  3. Sign up in the app (do NOT use Test Mode — it has been removed)
 `)
 }
 

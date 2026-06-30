@@ -43,11 +43,25 @@ export const useUiStore = create<UiState>((set, get) => ({
   isDragging: false,
   forwardPayload: null,
 
-  toggleWindow: () => set((s) => ({ isWindowOpen: !s.isWindowOpen })),
+  toggleWindow: () => {
+    const next = !get().isWindowOpen
+    set({ isWindowOpen: next })
+    if (next) {
+      window.electronAPI?.resizeOverlay?.(380, 340 + BUBBLE_SIZE + 24)
+    } else {
+      window.electronAPI?.resizeOverlay?.(200, 200)
+    }
+  },
 
-  openWindow: () => set({ isWindowOpen: true }),
+  openWindow: () => {
+    set({ isWindowOpen: true })
+    window.electronAPI?.resizeOverlay?.(380, 340 + BUBBLE_SIZE + 24)
+  },
 
-  closeWindow: () => set({ isWindowOpen: false }),
+  closeWindow: () => {
+    set({ isWindowOpen: false })
+    window.electronAPI?.resizeOverlay?.(200, 200)
+  },
 
   setView: (view) => {
     const tabMap: Record<AppView, NavTab | null> = {
@@ -99,29 +113,20 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
 
   initBubblePosition: () => {
-    set({
-      bubblePos: {
-        x: window.innerWidth - BUBBLE_SIZE - EDGE_PADDING,
-        y: Math.min(100, window.innerHeight - BUBBLE_SIZE - EDGE_PADDING),
-      },
-      snapSide: 'right',
-    })
+    const stored = localStorage.getItem('bubblePos')
+    let pos: Position
+    if (stored) {
+      try {
+        pos = JSON.parse(stored)
+      } catch {
+        pos = { x: window.innerWidth - BUBBLE_SIZE - EDGE_PADDING, y: 100 }
+      }
+    } else {
+      pos = { x: window.innerWidth - BUBBLE_SIZE - EDGE_PADDING, y: 100 }
+    }
+    set({ bubblePos: pos, snapSide: pos.x < window.innerWidth / 2 ? 'left' : 'right' })
+    window.electronAPI?.setPosition?.(pos.x, pos.y)
   },
 }))
 
 export const CHAT_WINDOW = { width: 380, height: 340 } as const
-
-export function getOverlayDimensions(isOpen: boolean, _snapSide: SnapSide): {
-  width: number
-  height: number
-} {
-  if (!isOpen) {
-    return { width: BUBBLE_SIZE + EDGE_PADDING * 2, height: BUBBLE_SIZE + EDGE_PADDING * 2 }
-  }
-  const chatWidth = CHAT_WINDOW.width
-  const chatHeight = CHAT_WINDOW.height + BUBBLE_SIZE + 24
-  return {
-    width: chatWidth + EDGE_PADDING * 2,
-    height: chatHeight + EDGE_PADDING,
-  }
-}

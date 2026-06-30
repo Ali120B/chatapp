@@ -46,6 +46,8 @@ interface ChatState {
   deleteChat: (chatId: string) => Promise<void>
   deleteMessage: (chatId: string, messageId: string, forAll: boolean) => Promise<void>
   forwardMessages: (sourceChatId: string, messageIds: string[], targetChatId: string) => Promise<void>
+  editMessage: (messageId: string, newContent: string) => Promise<void>
+  markMessagesRead: (chatId: string) => Promise<void>
   getTotalUnread: () => number
   decryptContent: (message: Message) => Promise<string>
   purgeExpiredTempChats: () => Promise<void>
@@ -92,6 +94,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ activeChatId: chatId })
     get().markChatRead(chatId)
     void get().loadMessages(chatId)
+    void get().markMessagesRead(chatId)
   },
 
   loadMessages: async (chatId, loadMore = false) => {
@@ -99,7 +102,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!user) return
 
     const existing = get().messagesByChatId[chatId] ?? []
-    const cursor = loadMore && existing.length > 0 ? existing[existing.length - 1]?.$id : undefined
+    // Use the oldest message's ID as cursor to fetch even older messages
+    const cursor = loadMore && existing.length > 0 ? existing[0]?.$id : undefined
     const messages = await appwriteChatService.getMessages(chatId, user.userId, cursor)
     const merged = loadMore ? [...existing, ...messages] : messages
     const deduped = [...new Map(merged.map((m) => [m.$id, m])).values()]
@@ -454,6 +458,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
           : chat,
       ),
     })
+  },
+
+  editMessage: async (messageId, newContent) => {
+    const user = useAuthStore.getState().user
+    if (!user) return
+    const updated = await appwriteChatService.editMessage(messageId, user.userId, newContent)
+    get().applyMessageUpdate(updated)
+  },
+
+  markMessagesRead: async (chatId) => {
+    const user = useAuthStore.getState().user
+    if (!user) return
+    void appwriteChatService.markMessagesRead(chatId, user.userId)
   },
 
   getTotalUnread: () => {

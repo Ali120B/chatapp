@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useChatStore } from '@/store/chatStore'
 import { useUiStore } from '@/store/uiStore'
 import { useFriendsStore } from '@/store/friendsStore'
+import { useTypingStore } from '@/store/typingStore'
 import { buildChatContextMenuItems } from '@/utils/chatContextItems'
 import { getChatDisplayName } from '@/utils/chatDisplay'
 import type { Message } from '@/types'
@@ -27,6 +28,7 @@ export function ChatView() {
   const chats = useChatStore((s) => s.chats)
   const messagesByChatId = useChatStore((s) => s.messagesByChatId)
   const sendMessage = useChatStore((s) => s.sendMessage)
+  const editMessage = useChatStore((s) => s.editMessage)
   const loadMessages = useChatStore((s) => s.loadMessages)
   const decryptContent = useChatStore((s) => s.decryptContent)
   const leaveChat = useChatStore((s) => s.leaveChat)
@@ -43,6 +45,8 @@ export function ChatView() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [replyPreviewText, setReplyPreviewText] = useState('')
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null)
+  const [editingText, setEditingText] = useState<string | undefined>(undefined)
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(new Set())
   const [chatContextMenuPos, setChatContextMenuPos] = useState<{ x: number; y: number } | null>(null)
@@ -50,12 +54,17 @@ export function ChatView() {
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false)
   const friends = useFriendsStore((s) => s.friends)
   const loadFriends = useFriendsStore((s) => s.loadFriends)
+  const typingUsersByChatId = useTypingStore((s) => s.typingUsersByChatId)
   const menuRef = useRef<HTMLButtonElement>(null)
 
   const chat = chats.find((c) => c.$id === activeChatId)
   const messages = activeChatId ? (messagesByChatId[activeChatId] ?? []) : []
   const isGroup = chat?.type === 'group_temp' || chat?.type === 'group_persist'
   const selectedMessages = messages.filter((message) => selectedMessageIds.has(message.$id))
+
+  const typingUsers = activeChatId
+    ? (typingUsersByChatId[activeChatId] ?? []).filter((u) => u.userId !== user?.userId)
+    : []
 
   const getAvatar = (userId: string) => {
     if (userId === user?.userId) return user.avatarUrl
@@ -84,9 +93,18 @@ export function ChatView() {
     setReplyPreviewText(text)
   }
 
+  const handleEdit = async (message: Message) => {
+    const text = message.isEncrypted ? await decryptContent(message) : message.content
+    setEditingMessage(message)
+    setEditingText(text)
+    setReplyTo(null)
+    setReplyPreviewText('')
+  }
+
   const handleStartSelectionMode = (message: Message) => {
     setShowMenu(false)
     setReplyTo(null)
+    setEditingMessage(null)
     setSelectionMode(true)
     setSelectedMessageIds(new Set([message.$id]))
   }
@@ -226,6 +244,14 @@ export function ChatView() {
       : []),
   ]
 
+  const typingText = typingUsers.length === 0
+    ? null
+    : typingUsers.length === 1
+      ? `${typingUsers[0].username} is typing...`
+      : typingUsers.length === 2
+        ? `${typingUsers[0].username} and ${typingUsers[1].username} are typing...`
+        : `${typingUsers[0].username} and ${typingUsers.length - 1} others are typing...`
+
   return (
     <div
       className="animate-slide-left flex h-full min-h-0 flex-col"
@@ -243,6 +269,12 @@ export function ChatView() {
         menuButtonRef={menuRef}
         isGroup={isGroup}
       />
+
+      {typingText && (
+        <div className="animate-fade-in shrink-0 px-3 pb-1 text-[10px] text-[#A0A4A8]">
+          {typingText}
+        </div>
+      )}
 
       {showMenu && (
         <FloatingMenu
@@ -304,6 +336,7 @@ export function ChatView() {
         hasMore={messages.length >= 50}
         isLoading={loadingMore}
         onReply={(msg) => void handleReply(msg)}
+        onEdit={(msg) => void handleEdit(msg)}
         onForward={handleForwardSingle}
         onStartSelectionMode={handleStartSelectionMode}
         selectionMode={selectionMode}
@@ -324,15 +357,27 @@ export function ChatView() {
       />
 
       <MessageInput
+        key={editingMessage?.$id ?? 'default'}
         onSend={async (content, file) => {
-          await sendMessage(content, file, replyTo?.$id ?? null)
-          setReplyTo(null)
-          setReplyPreviewText('')
+          if (editingMessage) {
+            await editMessage(editingMessage.$id, content)
+            setEditingMessage(null)
+          } else {
+            await sendMessage(content, file, replyTo?.$id ?? null)
+            setReplyTo(null)
+            setReplyPreviewText('')
+          }
         }}
         onCreatePoll={() => setShowPollModal(true)}
         disabled={selectionMode || !user}
+        chatId={activeChatId}
+        initialText={editingText}
+        onCancelEdit={() => {
+          setEditingMessage(null)
+          setEditingText(undefined)
+        }}
         replyPreview={
-          replyTo
+          replyTo && !editingMessage
             ? {
                 senderName: getSenderName(replyTo.senderId),
                 content: replyPreviewText.slice(0, 80),

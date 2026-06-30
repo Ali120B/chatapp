@@ -7,7 +7,6 @@ interface FloatingBubbleProps {
 }
 
 export function FloatingBubble({ unreadCount }: FloatingBubbleProps) {
-  const bubblePos = useUiStore((s) => s.bubblePos)
   const isWindowOpen = useUiStore((s) => s.isWindowOpen)
   const activeView = useUiStore((s) => s.activeView)
   const toggleWindow = useUiStore((s) => s.toggleWindow)
@@ -28,13 +27,9 @@ export function FloatingBubble({ unreadCount }: FloatingBubbleProps) {
     <button
       type="button"
       data-overlay-interactive
-      className={`glass-pill fixed z-[70] flex items-center justify-center touch-none select-none shadow-lg
+      className={`glass-pill z-[70] flex h-12 w-12 items-center justify-center touch-none select-none shadow-lg
         ${isWindowOpen ? 'ring-2 ring-[var(--color-accent)]/40' : ''}`}
       style={{
-        width: 48,
-        height: 48,
-        left: bubblePos.x,
-        top: bubblePos.y,
         cursor: 'grab',
       }}
       onPointerDown={handlePointerDown}

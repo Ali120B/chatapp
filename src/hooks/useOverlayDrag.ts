@@ -7,7 +7,7 @@ interface UseOverlayDragOptions {
   onDragEnd?: (pos: { x: number; y: number }, wasClick: boolean) => void
 }
 
-/** Drag the entire overlay (bubble + chat) within the fullscreen window. */
+/** Drag the Electron window by moving it via IPC. */
 export function useOverlayDrag(options: UseOverlayDragOptions = {}) {
   const { shouldStart, onDragEnd: onDragEndExtra } = options
   const bubblePos = useUiStore((s) => s.bubblePos)
@@ -16,15 +16,19 @@ export function useOverlayDrag(options: UseOverlayDragOptions = {}) {
 
   const onMove = useCallback((pos: { x: number; y: number }) => {
     setBubblePos(pos)
+    window.electronAPI?.setPosition?.(pos.x, pos.y)
   }, [setBubblePos])
 
   const onDragEnd = useCallback(
     (pos: { x: number; y: number }, wasClick: boolean) => {
       setDragging(false)
+      setBubblePos(pos)
+      window.electronAPI?.setPosition?.(pos.x, pos.y)
       window.electronAPI?.keepOnTop?.()
+      try { localStorage.setItem('bubblePos', JSON.stringify(pos)) } catch {}
       onDragEndExtra?.(pos, wasClick)
     },
-    [onDragEndExtra, setDragging],
+    [onDragEndExtra, setDragging, setBubblePos],
   )
 
   return usePointerDrag({

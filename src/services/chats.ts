@@ -6,6 +6,7 @@ import {
 } from './appwrite'
 import type { Chat, Message } from '@/types'
 import { isTempGroupExpired, tempGroupExpiresAt } from '@/utils/tempChat'
+import { sanitizeMessage } from '@/utils/profanityFilter'
 import { parseReactions, serializeReactions, toggleReaction } from '@/utils/reactions'
 import {
   addPollOption as appendPollOption,
@@ -460,6 +461,56 @@ export const appwriteChatService = {
     return docToMessage(updated)
   },
 
+  async markMessagesRead(chatId: string, userId: string): Promise<void> {
+    try {
+      const res = await databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.messages,
+        [Query.equal('chatId', chatId), Query.limit(100)],
+      )
+      for (const doc of res.documents) {
+        const readBy = (doc.readBy as string[] | undefined) ?? []
+        if (readBy.includes(userId)) continue
+        if (doc.senderId === userId) continue
+        await databases.updateDocument(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collections.messages,
+          doc.$id,
+          { readBy: [...readBy, userId] },
+        )
+      }
+    } catch {
+      // degrade gracefully
+    }
+  },
+
+  async editMessage(
+    messageId: string,
+    userId: string,
+    newContent: string,
+  ): Promise<Message> {
+    const msg = await databases.getDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.messages,
+      messageId,
+    )
+    if (msg.senderId !== userId) {
+      throw new Error('You can only edit your own messages')
+    }
+    const { sanitized, filteredCount } = sanitizeMessage(newContent)
+    const updated = await databases.updateDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.messages,
+      messageId,
+      {
+        content: sanitized,
+        filteredWordCount: filteredCount,
+        editedAt: new Date().toISOString(),
+      },
+    )
+    return docToMessage(updated)
+  },
+
   async touchTempGroupExpiry(chatId: string): Promise<void> {
     await bumpTempGroupExpiry(chatId)
   },
@@ -565,8 +616,10 @@ function docToMessage(doc: Record<string, unknown>): Message & { deletedForUserI
     sentAt: doc.sentAt as string,
     replyToId: (doc.replyToId as string | null | undefined) ?? null,
     deletedForUserIds: (doc.deletedForUserIds as string[] | undefined) ?? [],
-    reactions: parseReactions(doc.reactions as string | undefined),
-    messageType,
-    pollData: messageType === 'poll' ? parsePoll(doc.pollData as string | undefined) : null,
-  }
+  reactions: parseReactions(doc.reactions as string | undefined),
+  messageType,
+  pollData: messageType === 'poll' ? parsePoll(doc.pollData as string | undefined) : null,
+  editedAt: (doc.editedAt as string | null | undefined) ?? null,
+  readBy: (doc.readBy as string[] | undefined) ?? [],
+}
 }

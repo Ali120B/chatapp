@@ -1,6 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FloatingMenu } from '@/components/common/FloatingMenu'
 import { EmojiPickerPopup } from '@/components/common/EmojiPickerPopup'
+import { typingService } from '@/services/typing'
+import { useAuthStore } from '@/store/authStore'
+import { useToastStore } from '@/store/toastStore'
 
 interface MessageInputProps {
   onSend: (content: string, imageFile?: File) => Promise<void>
@@ -8,6 +11,9 @@ interface MessageInputProps {
   disabled?: boolean
   replyPreview?: { senderName: string; content: string } | null
   onClearReply?: () => void
+  initialText?: string
+  onCancelEdit?: () => void
+  chatId?: string | null
 }
 
 export function MessageInput({
@@ -16,6 +22,9 @@ export function MessageInput({
   disabled,
   replyPreview,
   onClearReply,
+  initialText,
+  onCancelEdit,
+  chatId,
 }: MessageInputProps) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
@@ -25,6 +34,29 @@ export function MessageInput({
   const fileRef = useRef<HTMLInputElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const attachRef = useRef<HTMLButtonElement>(null)
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const user = useAuthStore((s) => s.user)
+  const addToast = useToastStore((s) => s.addToast)
+
+  useEffect(() => {
+    if (initialText !== undefined) {
+      setText(initialText)
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        const len = initialText.length
+        inputRef.current?.setSelectionRange(len, len)
+      })
+    }
+  }, [initialText])
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      if (chatId && user) {
+        void typingService.clearTyping(chatId, user.userId)
+      }
+    }
+  }, [chatId, user])
 
   const focusInput = () => {
     window.electronAPI?.setFocusable?.(true)
@@ -55,8 +87,12 @@ export function MessageInput({
       await onSend(text)
       setText('')
       onClearReply?.()
+      onCancelEdit?.()
       setJustSent(true)
       setTimeout(() => setJustSent(false), 400)
+      if (chatId && user) {
+        void typingService.clearTyping(chatId, user.userId)
+      }
     } finally {
       setSending(false)
     }
@@ -67,13 +103,61 @@ export function MessageInput({
       e.preventDefault()
       void handleSend()
     }
+    if (e.key === 'Escape' && onCancelEdit) {
+      onCancelEdit()
+      setText('')
+    }
+  }
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData.items)
+    const imageItem = items.find((item) => item.type.startsWith('image/'))
+    if (!imageItem) return
+
+    e.preventDefault()
+    const blob = imageItem.getAsFile()
+    if (!blob) return
+    if (blob.size > 5 * 1024 * 1024) {
+      addToast('Image must be under 5 MB', 'error')
+      return
+    }
+
+    const ext = blob.type.split('/')[1] || 'png'
+    const file = new File([blob], `paste-${Date.now()}.${ext}`, { type: blob.type })
+    setSending(true)
+    try {
+      await onSend(text || '📷 Photo', file)
+      setText('')
+      onClearReply?.()
+      onCancelEdit?.()
+      if (chatId && user) {
+        void typingService.clearTyping(chatId, user.userId)
+      }
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setText(val)
+
+    if (chatId && user && val.length > 0) {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+      void typingService.setTyping(chatId, user.userId, user.username)
+      typingTimeoutRef.current = setTimeout(() => {
+        void typingService.clearTyping(chatId, user.userId)
+      }, 3000)
+    } else if (chatId && user && val.length === 0) {
+      void typingService.clearTyping(chatId, user.userId)
+    }
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image must be under 5 MB')
+      addToast('Image must be under 5 MB', 'error')
       return
     }
     setSending(true)
@@ -81,6 +165,9 @@ export function MessageInput({
       await onSend(text || '📷 Image', file)
       setText('')
       onClearReply?.()
+      if (chatId && user) {
+        void typingService.clearTyping(chatId, user.userId)
+      }
     } finally {
       setSending(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -88,10 +175,29 @@ export function MessageInput({
   }
 
   const isTyping = text.length > 0
+  const isEditing = initialText !== undefined
 
   return (
     <div className="shrink-0 px-3 pb-3 pt-1">
-      {replyPreview && (
+      {isEditing && (
+        <div className="animate-slide-down mb-2 flex items-center gap-2 rounded-xl bg-white/6 px-2 py-1.5">
+          <div className="min-w-0 flex-1 border-l-2 border-[var(--color-accent)] pl-2">
+            <p className="text-[10px] font-medium text-[var(--color-accent)]">Editing message</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              onCancelEdit?.()
+              setText('')
+            }}
+            className="text-[#A0A4A8] hover:text-white"
+            aria-label="Cancel edit"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+      {replyPreview && !isEditing && (
         <div className="animate-slide-down mb-2 flex items-center gap-2 rounded-xl bg-white/6 px-2 py-1.5">
           <div className="min-w-0 flex-1 border-l-2 border-[var(--color-accent)] pl-2">
             <p className="text-[10px] font-medium text-[var(--color-accent)]">
@@ -203,11 +309,15 @@ export function MessageInput({
             ref={inputRef}
             type="text"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             onPointerDown={focusInput}
             onClick={focusInput}
-            placeholder={replyPreview ? 'Reply...' : 'Type a message...'}
+            placeholder={
+              isEditing ? 'Edit message...' :
+              replyPreview ? 'Reply...' : 'Type a message...'
+            }
             className="w-full bg-transparent text-sm text-white placeholder-[#A0A4A8] outline-none"
             aria-label="Message input"
             data-needs-focus

@@ -353,11 +353,34 @@ export function MessageList({
   }
 
   const handleCopy = async (msg: Message) => {
+    // Copy image if present
+    if (msg.imageFileId) {
+      try {
+        const url = String(storage.getFileView(APPWRITE_CONFIG.storageBucket, msg.imageFileId))
+        const res = await fetch(url)
+        const blob = await res.blob()
+        await navigator.clipboard.write([
+          new ClipboardItem({ [blob.type]: blob }),
+        ])
+        return
+      } catch {
+        // fallback: copy URL text
+      }
+    }
+    // Copy text
     const text = displayTexts[msg.$id] ?? msg.content
     try {
       await navigator.clipboard.writeText(text)
     } catch {
-      // ignore
+      // Fallback: textarea-based copy
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
     }
   }
 

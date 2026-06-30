@@ -87,17 +87,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const fetched = await appwriteChatService.getChats(user.userId)
     const uniqueChats = [...new Map(fetched.map((c) => [c.$id, c])).values()]
 
-    // Read CURRENT state (not stale snapshot from start of async)
+    // Read CURRENT state right before set (avoids stale snapshot race)
     const currentChats = get().chats
     const currentUnread = { ...get().unreadCounts }
     const activeChatId = get().activeChatId
 
-    // For non-active chats, check if last message is new (skip first load)
+    // Detect new messages for non-active chats (skip first load)
     if (chatsLoadedOnce) {
       for (const chat of uniqueChats) {
         if (chat.$id === activeChatId) continue
         const local = currentChats.find((c) => c.$id === chat.$id)
-        if (!local) continue
+        if (!local) {
+          // New chat we haven't seen — don't mark as unread
+          continue
+        }
         const serverTime = new Date(chat.lastMessageAt ?? chat.createdAt).getTime()
         const localTime = new Date(local.lastMessageAt ?? local.createdAt).getTime()
         if (serverTime > localTime) {
@@ -107,13 +110,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
     chatsLoadedOnce = true
 
-    const mergedChats = uniqueChats.map((chat) => {
-      return {
-        ...chat,
-        lastMessageAt: chat.lastMessageAt ?? chat.createdAt,
-        unreadCount: currentUnread[chat.$id] ?? 0,
+    // Merge: keep local unread if higher than what we just computed
+    for (const chat of uniqueChats) {
+      const existing = get().unreadCounts[chat.$id] ?? 0
+      if (existing > (currentUnread[chat.$id] ?? 0)) {
+        currentUnread[chat.$id] = existing
       }
-    }).sort((a, b) => {
+    }
+
+    const mergedChats = uniqueChats.map((chat) => ({
+      ...chat,
+      lastMessageAt: chat.lastMessageAt ?? chat.createdAt,
+      unreadCount: currentUnread[chat.$id] ?? 0,
+    })).sort((a, b) => {
       const aTime = new Date(a.lastMessageAt ?? a.createdAt).getTime()
       const bTime = new Date(b.lastMessageAt ?? b.createdAt).getTime()
       return bTime - aTime

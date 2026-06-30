@@ -27,7 +27,7 @@ export function FloatingBubble({ unreadCount }: FloatingBubbleProps) {
     <button
       type="button"
       data-overlay-interactive
-      className={`glass-pill z-[70] flex h-12 w-12 items-center justify-center touch-none select-none shadow-lg
+      className={`glass-pill z-[70] relative flex h-12 w-12 items-center justify-center touch-none select-none shadow-lg
         ${isWindowOpen ? 'ring-2 ring-[var(--color-accent)]/40' : ''}`}
       style={{
         cursor: 'grab',

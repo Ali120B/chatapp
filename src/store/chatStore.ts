@@ -53,10 +53,10 @@ interface ChatState {
   purgeExpiredTempChats: () => Promise<void>
 }
 
-function saveUnreadToStorage(unreadCounts: Record<string, number>, lastMessageAts: Record<string, string>) {
+function saveUnreadToStorage(unreadCounts: Record<string, number>, lastMsgIds: Record<string, string>) {
   try {
     localStorage.setItem('unreadCounts', JSON.stringify(unreadCounts))
-    localStorage.setItem('lastMessageAts', JSON.stringify(lastMessageAts))
+    localStorage.setItem('lastMsgIds', JSON.stringify(lastMsgIds))
   } catch {}
 }
 
@@ -67,9 +67,9 @@ function loadUnreadFromStorage(): Record<string, number> {
   } catch { return {} }
 }
 
-function loadLastMessageAtsFromStorage(): Record<string, string> {
+function loadLastMsgIdsFromStorage(): Record<string, string> {
   try {
-    const raw = localStorage.getItem('lastMessageAts')
+    const raw = localStorage.getItem('lastMsgIds')
     return raw ? JSON.parse(raw) : {}
   } catch { return {} }
 }
@@ -97,23 +97,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const currentUnread = { ...get().unreadCounts }
     const activeChatId = get().activeChatId
-    const prevLastMsgAts = loadLastMessageAtsFromStorage()
-    const newLastMsgAts: Record<string, string> = {}
+    const prevLastMsgIds = loadLastMsgIdsFromStorage()
+    const newLastMsgIds: Record<string, string> = {}
 
     for (const chat of uniqueChats) {
-      const serverTime = chat.lastMessageAt ?? chat.createdAt
-      newLastMsgAts[chat.$id] = serverTime
+      const serverLastId = chat.lastMessageId
+      if (serverLastId) newLastMsgIds[chat.$id] = serverLastId
 
       if (chat.$id === activeChatId) continue
 
-      // Compare against stored lastMessageAt (works on first load after restart)
-      const prevTime = prevLastMsgAts[chat.$id]
-      if (prevTime) {
-        const serverMs = new Date(serverTime).getTime()
-        const prevMs = new Date(prevTime).getTime()
-        if (serverMs > prevMs) {
-          currentUnread[chat.$id] = (currentUnread[chat.$id] ?? 0) + 1
-        }
+      // Compare last message ID — if different, new messages arrived
+      const prevId = prevLastMsgIds[chat.$id]
+      if (prevId && serverLastId && prevId !== serverLastId) {
+        // Count messages from others since last seen
+        // Use the count we already fetched (messages between last seen and now)
+        const storedUnread = currentUnread[chat.$id] ?? 0
+        // Simple: increment by 1 for each new message batch
+        currentUnread[chat.$id] = storedUnread + 1
+      } else if (!prevId && serverLastId) {
+        // First time seeing this chat — don't mark as unread (app just started)
       }
     }
 
@@ -135,7 +137,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return bTime - aTime
     })
     set({ chats: mergedChats, unreadCounts: currentUnread, isLoading: false })
-    saveUnreadToStorage(currentUnread, newLastMsgAts)
+    saveUnreadToStorage(currentUnread, newLastMsgIds)
   },
 
   selectChat: (chatId) => {
@@ -171,7 +173,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               c.$id === chatId ? { ...c, unreadCount: next } : c,
             ),
           })
-          saveUnreadToStorage(newUnread, loadLastMessageAtsFromStorage())
+          saveUnreadToStorage(newUnread, loadLastMsgIdsFromStorage())
         }
       }
     }
@@ -420,7 +422,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           c.$id === message.chatId ? { ...c, unreadCount: next } : c,
         ),
       })
-      saveUnreadToStorage(newUnread, loadLastMessageAtsFromStorage())
+      saveUnreadToStorage(newUnread, loadLastMsgIdsFromStorage())
     }
   },
 
@@ -432,7 +434,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         c.$id === chatId ? { ...c, unreadCount: 0 } : c,
       ),
     })
-    saveUnreadToStorage(newUnread, loadLastMessageAtsFromStorage())
+    saveUnreadToStorage(newUnread, loadLastMsgIdsFromStorage())
   },
 
   createGroup: async (name, memberIds, type = 'group_temp') => {

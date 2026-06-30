@@ -46,7 +46,12 @@ export const appwriteChatService = {
     const withPreview = await Promise.all(
       chats.map(async (chat) => {
         const result = await getLastMessagePreview(chat.$id, userId)
-        return result ? { ...chat, lastMessage: result.text, lastMessageAt: result.sentAt } : chat
+        return result ? {
+          ...chat,
+          lastMessage: result.text,
+          lastMessageAt: result.sentAt,
+          lastMessageId: result.lastMsgId,
+        } : chat
       }),
     )
     return withPreview
@@ -547,17 +552,25 @@ export const appwriteChatService = {
   },
 }
 
-async function getLastMessagePreview(chatId: string, userId: string): Promise<{ text: string; sentAt: string } | undefined> {
+async function getLastMessagePreview(chatId: string, userId: string): Promise<{ text: string; sentAt: string; lastMsgId: string; newFromOthers: number } | undefined> {
   const res = await databases.listDocuments(
     APPWRITE_CONFIG.databaseId,
     APPWRITE_CONFIG.collections.messages,
     [Query.equal('chatId', chatId), Query.orderDesc('sentAt'), Query.limit(25)],
   )
+  if (res.documents.length === 0) return undefined
+  const lastDoc = res.documents[0]
+  let text: string | undefined
   for (const doc of res.documents) {
     const preview = messagePreview(doc, userId)
-    if (preview) return { text: preview, sentAt: doc.sentAt as string }
+    if (preview) { text = preview; break }
   }
-  return undefined
+  return {
+    text: text ?? 'New message',
+    sentAt: lastDoc.sentAt as string,
+    lastMsgId: lastDoc.$id,
+    newFromOthers: res.documents.filter((d) => d.senderId !== userId).length,
+  }
 }
 
 async function bumpTempGroupExpiry(chatId: string): Promise<void> {

@@ -48,6 +48,7 @@ export interface Chat {
   description?: string | null
   lastMessage?: string
   lastMessageAt?: string
+  lastMessageId?: string
   unreadCount?: number
 }
 

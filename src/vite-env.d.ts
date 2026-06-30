@@ -19,6 +19,10 @@ interface ElectronAPI {
   setIgnoreMouseEvents?: (ignore: boolean, options?: { forward: boolean }) => void
   setFocusable?: (focusable: boolean) => void
   keepOnTop?: () => void
+  setPosition?: (x: number, y: number) => void
+  getPosition?: () => Promise<[number, number]>
+  resizeOverlay?: (width: number, height: number) => void
+  openExternal?: (url: string) => void
   onDeepLink?: (callback: (payload: { type: string; userId: string | null; secret: string | null }) => void) => () => void
   onGlobalFocusShortcut?: (callback: () => void) => () => void
   platform: NodeJS.Platform

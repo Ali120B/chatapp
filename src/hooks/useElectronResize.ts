@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { useUiStore } from '@/store/uiStore'
 
 /** Resize Electron window to fit bubble + chat panel. */
 export function useElectronResize(isWindowOpen: boolean) {

@@ -12,12 +12,6 @@ const iconByType: Record<ToastType['type'], string> = {
   info: 'i',
 }
 
-const colorByType: Record<ToastType['type'], string> = {
-  error: 'text-[#E53E3E]',
-  success: 'text-[#38A169]',
-  info: 'text-[var(--color-accent)]',
-}
-
 export function Toast({ toast }: ToastProps) {
   const removeToast = useToastStore((s) => s.removeToast)
 

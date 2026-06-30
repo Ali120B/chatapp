@@ -466,19 +466,24 @@ export const appwriteChatService = {
       const res = await databases.listDocuments(
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.messages,
-        [Query.equal('chatId', chatId), Query.limit(100)],
+        [Query.equal('chatId', chatId), Query.limit(50)],
       )
-      for (const doc of res.documents) {
+      const toMark = res.documents.filter((doc) => {
         const readBy = (doc.readBy as string[] | undefined) ?? []
-        if (readBy.includes(userId)) continue
-        if (doc.senderId === userId) continue
-        await databases.updateDocument(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.messages,
-          doc.$id,
-          { readBy: [...readBy, userId] },
-        )
-      }
+        return doc.senderId !== userId && !readBy.includes(userId)
+      })
+      // Batch updates — only update unread messages from others
+      await Promise.all(
+        toMark.map((doc) => {
+          const readBy = (doc.readBy as string[] | undefined) ?? []
+          return databases.updateDocument(
+            APPWRITE_CONFIG.databaseId,
+            APPWRITE_CONFIG.collections.messages,
+            doc.$id,
+            { readBy: [...readBy, userId] },
+          )
+        }),
+      )
     } catch {
       // degrade gracefully
     }

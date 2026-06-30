@@ -345,6 +345,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     if (isSelf || isViewingChat) {
       get().markChatRead(message.chatId)
+      if (isViewingChat) void get().markMessagesRead(message.chatId)
     } else {
       const next = (unreadCounts[message.chatId] ?? 0) + 1
       set({

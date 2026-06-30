@@ -79,7 +79,7 @@ export function GroupDetailsView() {
     .filter((m) => m.imageFileId)
     .map((m) => ({
       id: m.$id,
-      url: storage.getFilePreview(APPWRITE_CONFIG.storageBucket, m.imageFileId!),
+      url: String(storage.getFilePreview(APPWRITE_CONFIG.storageBucket, m.imageFileId!)),
     }))
 
   const { handlePointerDown, handlePointerMove, handlePointerUp, handlePointerCancel } =

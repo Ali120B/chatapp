@@ -21,7 +21,7 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus'
 import { subscribeToRealtime } from '@/services/realtime'
 import { presenceService } from '@/services/presence'
 import { typingService } from '@/services/typing'
-import { client, APPWRITE_CONFIG } from '@/services/appwrite'
+import { client, APPWRITE_CONFIG, databases, Query } from '@/services/appwrite'
 
 function AuthenticatedContent() {
   const activeView = useUiStore((s) => s.activeView)
@@ -182,6 +182,38 @@ export default function App() {
     return () => clearInterval(interval)
   }, [isAuthenticated, user?.userId, removeTypingUser])
 
+  // 1.5s typing poll — fetches fresh typing state from DB
+  useEffect(() => {
+    if (!isAuthenticated || !user) return
+    const pollTyping = async () => {
+      const { activeChatId } = useChatStore.getState()
+      if (!activeChatId) return
+      try {
+        const res = await databases.listDocuments(
+          APPWRITE_CONFIG.databaseId,
+          'typing',
+          [Query.equal('chatId', activeChatId), Query.limit(20)],
+        )
+        const now = Date.now()
+        for (const doc of res.documents) {
+          const expiresAt = doc.expiresAt as string
+          const uid = doc.userId as string
+          const uname = doc.username as string
+          if (uid === user.userId) continue
+          if (new Date(expiresAt).getTime() < now) {
+            removeTypingUser(activeChatId, uid)
+          } else {
+            addTypingUser(activeChatId, { userId: uid, username: uname })
+          }
+        }
+      } catch {
+        // typing collection may not exist
+      }
+    }
+    const interval = setInterval(pollTyping, 1_500)
+    return () => clearInterval(interval)
+  }, [isAuthenticated, user?.userId, addTypingUser, removeTypingUser])
+
   useEffect(() => {
     if (!isAuthenticated || !user) return
 
@@ -208,7 +240,7 @@ export default function App() {
     )
   }, [isAuthenticated, user, addIncomingMessage, loadChats])
 
-  // Sync: visibility change + focus + 30s safety net (replaced 2s polling)
+  // Sync: 1.5s polling for messages + typing (realtime is too slow)
   useEffect(() => {
     if (!isAuthenticated) return
 
@@ -218,7 +250,7 @@ export default function App() {
       if (activeChatId) void loadMessages(activeChatId)
     }
 
-    const interval = setInterval(syncActiveChat, 30_000)
+    const interval = setInterval(syncActiveChat, 1_500)
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') syncActiveChat()
     }

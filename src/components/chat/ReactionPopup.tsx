@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { MessageReactions } from '@/utils/reactions'
 import { useFriendsStore } from '@/store/friendsStore'
-import { useAuthStore } from '@/store/authStore'
 
 interface ReactionPopupProps {
   reactions: MessageReactions
@@ -22,7 +21,6 @@ export function ReactionPopup({
   const popupRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
   const friends = useFriendsStore((s) => s.friends)
-  const user = useAuthStore((s) => s.user)
 
   const getName = (userId: string) => {
     if (userId === currentUserId) return 'You'
@@ -36,11 +34,13 @@ export function ReactionPopup({
     const vw = window.innerWidth
     const vh = window.innerHeight
 
-    let left = anchorRect.left + anchorRect.width / 2 - width / 2
-    left = Math.max(8, Math.min(left, vw - width - 8))
+    // Position above the anchor, shifted left to avoid overflow
+    let left = anchorRect.left - width + anchorRect.width
+    left = Math.max(4, Math.min(left, vw - width - 4))
 
-    let top = anchorRect.top - height - 8
-    if (top < 8) top = anchorRect.bottom + 8
+    let top = anchorRect.top - height - 6
+    if (top < 4) top = anchorRect.bottom + 6
+    if (top + height > vh - 4) top = Math.max(4, vh - height - 4)
 
     setPos({ left, top })
   }, [anchorRect])
@@ -70,7 +70,7 @@ export function ReactionPopup({
     <div
       ref={popupRef}
       data-overlay-interactive
-      className="animate-context-menu-in glass-menu fixed z-[9999] min-w-[160px] max-w-[220px] p-1.5"
+      className="animate-context-menu-in glass-menu fixed z-[9999] min-w-[140px] max-w-[200px] p-1"
       style={{
         left: pos?.left ?? -9999,
         top: pos?.top ?? -9999,
@@ -78,30 +78,28 @@ export function ReactionPopup({
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <p className="mb-1 px-2 text-[10px] font-medium text-[#A0A4A8]">
+      <p className="mb-0.5 px-2 text-[10px] font-medium text-[#A0A4A8]">
         {entries.reduce((sum, [, u]) => sum + u.length, 0)} reaction{entries.reduce((sum, [, u]) => sum + u.length, 0) !== 1 ? 's' : ''}
       </p>
       {entries.map(([emoji, users]) => (
-        <div key={emoji} className="mb-0.5">
-          <div className="flex items-center gap-1.5 px-2 py-1">
-            <span className="text-sm">{emoji}</span>
-            <span className="text-[10px] text-[#A0A4A8]">{users.length}</span>
-          </div>
+        <div key={emoji}>
           {users.map((uid) => (
             <button
               key={uid}
               type="button"
-              onClick={() => {
+              data-overlay-interactive
+              onMouseUp={(e) => {
+                e.stopPropagation()
                 onRemoveReaction(emoji)
                 onClose()
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition-colors hover:bg-white/10"
+              className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-[11px] transition-colors hover:bg-white/10"
             >
-              <span className="flex-1 text-white">{getName(uid)}</span>
-              <span className="text-[10px] text-[#A0A4A8]">
-                {uid === currentUserId ? 'Click to remove' : ''}
+              <span className="text-white">{getName(uid)}</span>
+              <span className="ml-auto shrink-0 text-[9px] text-[#A0A4A8]">
+                {uid === currentUserId ? 'remove' : ''}
               </span>
-              <span className="text-sm">{emoji}</span>
+              <span className="shrink-0 text-sm">{emoji}</span>
             </button>
           ))}
         </div>

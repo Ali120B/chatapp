@@ -80,6 +80,14 @@ export function ChatView() {
     void loadFriends()
   }, [loadFriends])
 
+  // Continuously mark messages as read while viewing this chat
+  useEffect(() => {
+    if (!activeChatId || !user) return
+    void markMessagesRead(activeChatId)
+    const interval = setInterval(() => void markMessagesRead(activeChatId), 3_000)
+    return () => clearInterval(interval)
+  }, [activeChatId, user?.userId])
+
   const handleLoadMore = async () => {
     if (!activeChatId || loadingMore) return
     setLoadingMore(true)

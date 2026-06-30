@@ -53,11 +53,22 @@ interface ChatState {
   purgeExpiredTempChats: () => Promise<void>
 }
 
+function saveUnreadToStorage(unreadCounts: Record<string, number>) {
+  try { localStorage.setItem('unreadCounts', JSON.stringify(unreadCounts)) } catch {}
+}
+
+function loadUnreadFromStorage(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem('unreadCounts')
+    return raw ? JSON.parse(raw) : {}
+  } catch { return {} }
+}
+
 export const useChatStore = create<ChatState>((set, get) => ({
   chats: [],
   activeChatId: null,
   messagesByChatId: {},
-  unreadCounts: {},
+  unreadCounts: loadUnreadFromStorage(),
   isLoading: false,
   searchQuery: '',
 
@@ -122,12 +133,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const isViewingChat = ui.isWindowOpen && ui.activeView === 'chat' && get().activeChatId === chatId
         if (!isViewingChat) {
           const next = (get().unreadCounts[chatId] ?? 0) + newFromOthers.length
+          const newUnread = { ...get().unreadCounts, [chatId]: next }
           set({
-            unreadCounts: { ...get().unreadCounts, [chatId]: next },
+            unreadCounts: newUnread,
             chats: get().chats.map((c) =>
               c.$id === chatId ? { ...c, unreadCount: next } : c,
             ),
           })
+          saveUnreadToStorage(newUnread)
         }
       }
     }
@@ -369,22 +382,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
       void get().markMessagesRead(message.chatId)
     } else {
       const next = (unreadCounts[message.chatId] ?? 0) + 1
+      const newUnread = { ...get().unreadCounts, [message.chatId]: next }
       set({
-        unreadCounts: { ...get().unreadCounts, [message.chatId]: next },
+        unreadCounts: newUnread,
         chats: get().chats.map((c) =>
           c.$id === message.chatId ? { ...c, unreadCount: next } : c,
         ),
       })
+      saveUnreadToStorage(newUnread)
     }
   },
 
   markChatRead: (chatId) => {
+    const newUnread = { ...get().unreadCounts, [chatId]: 0 }
     set({
-      unreadCounts: { ...get().unreadCounts, [chatId]: 0 },
+      unreadCounts: newUnread,
       chats: get().chats.map((c) =>
         c.$id === chatId ? { ...c, unreadCount: 0 } : c,
       ),
     })
+    saveUnreadToStorage(newUnread)
   },
 
   createGroup: async (name, memberIds, type = 'group_temp') => {

@@ -1,5 +1,6 @@
 import {
   databases,
+  storage,
   APPWRITE_CONFIG,
   ID,
   Query,
@@ -236,10 +237,14 @@ async function getFriendshipRelation(
 }
 
 function docToProfile(doc: Record<string, unknown>): UserProfile {
+  const avatarFileId = doc.avatarFileId as string | undefined
+  const avatarUrl = avatarFileId
+    ? String(storage.getFileView(APPWRITE_CONFIG.storageBucket, avatarFileId))
+    : (doc.avatarUrl as string)
   return {
     userId: doc.userId as string,
     username: doc.username as string,
-    avatarUrl: doc.avatarUrl as string,
+    avatarUrl,
     createdAt: doc.createdAt as string,
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChatContextMenu } from './ChatContextMenu'
 import { GlassPanel } from '@/components/glass/GlassPanel'
 import { canDragFromHeaderTarget, useOverlayDrag } from '@/hooks/useOverlayDrag'
@@ -11,6 +11,7 @@ import { Avatar } from '@/components/common/Avatar'
 import { useThemeStore } from '@/store/themeStore'
 import { getProfilesByIds } from '@/services/users'
 import { storage, APPWRITE_CONFIG } from '@/services/appwrite'
+import { appwriteChatService } from '@/services/chats'
 import { getChatDisplayName } from '@/utils/chatDisplay'
 import type { UserProfile } from '@/types'
 
@@ -43,13 +44,10 @@ export function GroupDetailsView() {
   const [extraProfiles, setExtraProfiles] = useState<UserProfile[]>([])
   const [showAddMembers, setShowAddMembers] = useState(false)
   const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set())
-  const [memberMenu, setMemberMenu] = useState<{
-    x: number
-    y: number
-    userId: string
-    username: string
-  } | null>(null)
   const [updatingMembers, setUpdatingMembers] = useState(false)
+  const [editingDesc, setEditingDesc] = useState(false)
+  const [descText, setDescText] = useState('')
+  const descInputRef = useRef<HTMLInputElement>(null)
 
   const chat = chats.find((c) => c.$id === activeChatId)
 
@@ -213,9 +211,46 @@ export function GroupDetailsView() {
 
             {/* Description */}
             <GlassPanel variant="chip" className="mb-2 p-3">
-              <p className="text-xs italic text-[#A0A4A8]">
-                {isGroup ? '"Stay connected, stay awesome!"' : 'No bio set'}
-              </p>
+              {editingDesc ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={descInputRef}
+                    type="text"
+                    value={descText}
+                    onChange={(e) => setDescText(e.target.value)}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter') {
+                        if (activeChatId) {
+                          await appwriteChatService.updateChatDescription(activeChatId, descText)
+                          setEditingDesc(false)
+                        }
+                      }
+                      if (e.key === 'Escape') setEditingDesc(false)
+                    }}
+                    onBlur={async () => {
+                      if (activeChatId && descText !== (chat.description ?? '')) {
+                        await appwriteChatService.updateChatDescription(activeChatId, descText)
+                      }
+                      setEditingDesc(false)
+                    }}
+                    className="w-full bg-transparent text-xs text-white outline-none placeholder-[#A0A4A8]"
+                    placeholder="Add a group description..."
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <p
+                  className={`text-xs italic ${isAdmin ? 'cursor-pointer hover:text-white' : ''} text-[#A0A4A8]`}
+                  onClick={() => {
+                    if (!isAdmin) return
+                    setDescText(chat.description ?? '')
+                    setEditingDesc(true)
+                    setTimeout(() => descInputRef.current?.focus(), 0)
+                  }}
+                >
+                  {chat.description || (isAdmin ? 'Tap to add a description...' : 'No description set')}
+                </p>
+              )}
             </GlassPanel>
 
             {/* Media section */}
@@ -246,10 +281,8 @@ export function GroupDetailsView() {
             {/* Settings items */}
             <div className="flex flex-col gap-0.5">
               {[
-                { icon: '⭐', label: 'Starred messages' },
                 { icon: '🔔', label: 'Notification settings' },
                 { icon: '🔒', label: 'Encryption', sub: 'Messages are end-to-end encrypted.' },
-                { icon: '⏱️', label: 'Disappearing messages', sub: 'Off' },
               ].map((item) => (
                 <button
                   key={item.label}

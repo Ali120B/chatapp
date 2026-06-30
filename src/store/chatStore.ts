@@ -65,7 +65,6 @@ function loadUnreadFromStorage(): Record<string, number> {
 }
 
 // Track last-seen message per chat to detect new messages during polling
-const lastSeenMessageIds: Record<string, string> = {}
 
 let chatsLoadedOnce = false
 

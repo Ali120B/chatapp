@@ -278,6 +278,7 @@ async function main() {
   await ensureString(databases, CHATS_COL, 'deletedAt', 64, false)
   await ensureString(databases, CHATS_COL, 'expiresAt', 64, false)
   await ensureString(databases, CHATS_COL, 'hiddenForUserIds', 36, false, true)
+  await ensureString(databases, CHATS_COL, 'description', 512, false)
   // Note: Appwrite does not support indexes on array attributes (memberIds)
 
   await ensureCollection(databases, MESSAGES_COL, 'Messages')

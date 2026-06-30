@@ -47,6 +47,7 @@ export interface Chat {
   hiddenForUserIds?: string[]
   lastMessage?: string
   lastMessageAt?: string
+  description?: string
   unreadCount?: number
 }
 

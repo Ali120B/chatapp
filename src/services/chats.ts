@@ -489,6 +489,15 @@ export const appwriteChatService = {
     }
   },
 
+  async updateChatDescription(chatId: string, description: string): Promise<void> {
+    await databases.updateDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.chats,
+      chatId,
+      { description },
+    )
+  },
+
   async editMessage(
     messageId: string,
     userId: string,
@@ -604,6 +613,7 @@ function docToChat(doc: Record<string, unknown>): Chat {
     adminIds: (doc.adminIds as string[] | undefined) ?? undefined,
     expiresAt: (doc.expiresAt as string | null | undefined) ?? null,
     hiddenForUserIds: (doc.hiddenForUserIds as string[] | undefined) ?? [],
+    description: (doc.description as string | undefined) ?? '',
   }
 }
 

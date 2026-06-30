@@ -357,10 +357,6 @@ export default function App() {
           focusMessageInput()
         }
       }
-      if (e.ctrlKey && e.key === '/') {
-        e.preventDefault()
-        focusAppOrInput()
-      }
       if (e.key === 'Escape' && isWindowOpen) {
         useUiStore.getState().closeWindow()
       }

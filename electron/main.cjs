@@ -82,9 +82,9 @@ function createTray() {
 
 function registerGlobalShortcuts() {
   globalShortcut.unregisterAll()
-  const registered = globalShortcut.register('CmdOrCtrl+Slash', handleGlobalFocusShortcut)
+  const registered = globalShortcut.register('Slash', handleGlobalFocusShortcut)
   if (!registered) {
-    console.warn('Failed to register Ctrl+/ global shortcut')
+    console.warn('Failed to register / global shortcut')
   }
 }
 

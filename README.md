@@ -1,35 +1,92 @@
-# Chat Overlay
+# Orbix Chat Overlay
 
-Roblox-style liquid glass floating chat overlay — Vite + React + TypeScript + Tailwind + Zustand + Appwrite + Electron.
+Floating glass chat overlay — Electron + React + TypeScript + Tailwind + Zustand + Appwrite.
 
 ## Quick Start
 
 ```bash
 cd App
 npm install
-npm run dev          # Vite + Electron (always-on-top overlay)
+npm run dev          # Electron overlay
 npm run dev:web      # Browser-only dev server
 ```
 
-Click **Enter Test Mode** on the login screen to explore the full UI without Appwrite credentials.
-
 ## Features
 
-- **Free-position draggable bubble** — place anywhere on screen (no forced edge snap)
-- **Chat window** — 380×340 liquid glass panel centered above bubble
-- **Always-on-top overlay** — full-screen transparent Electron window with click-through (KDE/Linux friendly)
-- **Floating menus** — Home/Chat ⋮ menus, message right-click context menu with reactions
-- **Group details** — info + members tabs (WhatsApp-style layout)
-- **Color themes** — 7 accent colors in Settings
+### Chat
+- **DMs, groups, temp groups** — private chats, persistent groups, auto-expiring temp groups
+- **Message edit** — edit your own messages, "(edited)" badge shown
+- **Message reactions** — emoji reactions on any message
+- **Polls** — create polls in chats, vote, add options
+- **Message forwarding** — single or bulk forward to any chat
+- **Message delete** — delete for yourself or everyone
+- **Reply to messages** — quoted reply previews
+- **Copy messages** — right-click copy (text + images)
+- **Link detection** — URLs in messages are clickable, open in system browser
+- **Image paste** — Ctrl+V to paste screenshots directly into chat
+- **Read receipts** — single grey tick (sent) / double blue ticks (read) like WhatsApp
+
+### UI
+- **Floating bubble** — draggable, snaps to edges, persists position across restarts
+- **Glassmorphism UI** — frosted glass panels, bubbles, menus
+- **Date separators** — "Today" / "Yesterday" / date dividers between message groups
+- **Scroll to bottom FAB** — down-arrow button when scrolled up
+- **7 accent colors** — customizable in Settings
 - **Animations** — view transitions, message pop-in, menu scale, nav pill slide
-- Auth, Test Mode, DMs, temp groups, friends, encryption, profanity filter
+
+### Real-time
+- **1.5s polling** — messages, typing indicators, and read receipts update every 1.5 seconds
+- **Typing indicators** — "X is typing..." shown below chat header
+- **Chat list sorting** — newest chats always on top
+
+### Social
+- **Friends system** — search, add, accept/reject requests
+- **Online presence** — green dot on avatars for online users
+- **Profile photos** — upload avatars in Settings
+
+### Security
+- **End-to-end encryption** — encrypted messages with key hint
+- **Profanity filter** — automatic word filtering
+- **Auth** — email/password signup and login
+
+### System
+- **Always-on-top** — overlay stays above other windows
+- **Global hotkey** — Alt+Shift+Space to focus the overlay
+- **System tray** — tray icon on Windows
+- **Auto-updater** — updates automatically on Windows
+- **Offline indicator** — banner when network drops
+- **Error toasts** — non-intrusive notifications for errors
+
+## Architecture
+
+| Layer | Tech |
+|-------|------|
+| Desktop | Electron (frameless, transparent, always-on-top) |
+| Frontend | React 19 + TypeScript + Tailwind CSS |
+| State | Zustand |
+| Backend | Appwrite (auth, database, storage, realtime) |
+| Build | Vite |
 
 ## Appwrite Setup
 
-1. Copy `.env.example` to `.env` and fill in your project values.
-2. Create database `chatapp` with collections: `users`, `friendships`, `chats`, `messages`.
-3. Create storage bucket `chat-images` (5 MB max file size enforced client-side).
-4. Set collection permissions so only authenticated members can read/write.
+Run the automated setup:
+
+```bash
+cp .env.setup.example .env.setup   # fill in your Appwrite credentials
+npm run setup:appwrite
+```
+
+This creates the database, collections, and storage bucket automatically.
+
+### Collections
+
+| Collection | Purpose |
+|------------|---------|
+| `users` | User profiles, avatars, online status |
+| `friendships` | Friend requests and blocks |
+| `chats` | DMs, groups, temp groups |
+| `messages` | Text, images, polls, reactions, read receipts |
+| `typing` | Ephemeral typing indicators (auto-expires) |
 
 ## Scripts
 
@@ -37,34 +94,34 @@ Click **Enter Test Mode** on the login screen to explore the full UI without App
 |---------|-------------|
 | `npm run dev` | Dev server + Electron overlay |
 | `npm run dev:web` | Browser-only development |
-| `npm run build` | Production web + electron bundles |
-| `npm run build:electron` | Build + package for Mac/Win/Linux |
+| `npm run build` | Production build |
+| `npm run publish` | Build + package + publish releases |
+| `npm run setup:appwrite` | Provision Appwrite schema |
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `/` | Focus message input |
+| `Escape` | Close chat window |
+| `Alt+Shift+Space` | Focus overlay (global) |
+| `Enter` | Send message |
+| `Ctrl+V` | Paste image from clipboard |
 
 ## Troubleshooting
 
-### `__dirname is not defined` or `app` / `app.isPackaged` is undefined
+### Overlay steals focus on KDE/Hyprland
 
-If `ELECTRON_RUN_AS_NODE=1` is set in your environment (some IDE terminals do this), Electron runs as plain Node and API imports fail.
+The window is focusable by default. Click a text field inside the chat to type.
 
-`npm run dev` unsets this automatically. Manual launch:
+### Images not loading
+
+The app uses `getFileView` (raw file) instead of `getFilePreview` (requires paid plan). If images still don't load, check your Appwrite storage bucket permissions.
+
+### `__dirname is not defined`
+
+If `ELECTRON_RUN_AS_NODE=1` is set, Electron runs as plain Node. Run:
 
 ```bash
 env -u ELECTRON_RUN_AS_NODE electron . --no-sandbox
 ```
-
-### Overlay steals focus on KDE
-
-The window is **non-focusable** by default so other apps stay interactive. Click a text field inside the chat to type — focus is enabled only for inputs marked `data-needs-focus`.
-
-### Context menu appears in wrong place
-
-Message menus are portaled to the document body and anchored to the message bubble. If issues persist, restart dev after pulling latest changes.
-
-## Task tracking
-
-| File | Purpose |
-|------|---------|
-| `App/task.md` | Full implementation handoff |
-| `../implementation_plan.md` | Feature plan + completion table |
-| `../current_task.md` / `../new_task.md` | Checklist with tick status |
-

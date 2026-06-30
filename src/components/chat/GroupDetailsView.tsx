@@ -85,7 +85,20 @@ export function GroupDetailsView() {
       shouldStart: (e) => canDragFromHeaderTarget(e.target),
     })
 
-  if (!user || !chat) return null
+  if (!user || !chat) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-4">
+        <p className="text-xs text-[#A0A4A8]">Chat not found</p>
+        <button
+          type="button"
+          onClick={() => setView('home')}
+          className="glass-chip px-4 py-2 text-xs text-white"
+        >
+          Go Home
+        </button>
+      </div>
+    )
+  }
 
   const isGroup = chat.type === 'group_temp' || chat.type === 'group_persist'
   const memberCount = chat.memberIds?.length ?? 0

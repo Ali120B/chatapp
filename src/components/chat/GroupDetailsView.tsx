@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChatContextMenu } from './ChatContextMenu'
 import { GlassPanel } from '@/components/glass/GlassPanel'
 import { canDragFromHeaderTarget, useOverlayDrag } from '@/hooks/useOverlayDrag'

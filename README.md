@@ -16,6 +16,7 @@ npm run dev:web      # Browser-only dev server
 ### Chat
 - **DMs, groups, temp groups** — private chats, persistent groups, auto-expiring temp groups
 - **Message edit** — edit your own messages, "(edited)" badge shown
+- **Message reactions** — emoji reactions on any message
 - **Polls** — create polls in chats, vote, add options
 - **Message forwarding** — single or bulk forward to any chat
 - **Message delete** — delete for yourself or everyone
@@ -84,7 +85,7 @@ This creates the database, collections, and storage bucket automatically.
 | `users` | User profiles, avatars, online status |
 | `friendships` | Friend requests and blocks |
 | `chats` | DMs, groups, temp groups |
-| `messages` | Text, images, polls, read receipts |
+| `messages` | Text, images, polls, reactions, read receipts |
 | `typing` | Ephemeral typing indicators (auto-expires) |
 
 ## Scripts

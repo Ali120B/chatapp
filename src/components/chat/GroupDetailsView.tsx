@@ -10,8 +10,8 @@ import { useFriendsStore } from '@/store/friendsStore'
 import { Avatar } from '@/components/common/Avatar'
 import { useThemeStore } from '@/store/themeStore'
 import { getProfilesByIds } from '@/services/users'
-import { storage, APPWRITE_CONFIG } from '@/services/appwrite'
 import { appwriteChatService } from '@/services/chats'
+import { storage, APPWRITE_CONFIG } from '@/services/appwrite'
 import { getChatDisplayName } from '@/utils/chatDisplay'
 import type { UserProfile } from '@/types'
 
@@ -44,10 +44,13 @@ export function GroupDetailsView() {
   const [extraProfiles, setExtraProfiles] = useState<UserProfile[]>([])
   const [showAddMembers, setShowAddMembers] = useState(false)
   const [selectedFriendIds, setSelectedFriendIds] = useState<Set<string>>(new Set())
+  const [memberMenu, setMemberMenu] = useState<{
+    x: number
+    y: number
+    userId: string
+    username: string
+  } | null>(null)
   const [updatingMembers, setUpdatingMembers] = useState(false)
-  const [editingDesc, setEditingDesc] = useState(false)
-  const [descText, setDescText] = useState('')
-  const descInputRef = useRef<HTMLInputElement>(null)
 
   const chat = chats.find((c) => c.$id === activeChatId)
 
@@ -85,20 +88,7 @@ export function GroupDetailsView() {
       shouldStart: (e) => canDragFromHeaderTarget(e.target),
     })
 
-  if (!user || !chat) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-4">
-        <p className="text-xs text-[#A0A4A8]">Chat not found</p>
-        <button
-          type="button"
-          onClick={() => setView('home')}
-          className="glass-chip px-4 py-2 text-xs text-white"
-        >
-          Go Home
-        </button>
-      </div>
-    )
-  }
+  if (!user || !chat) return null
 
   const isGroup = chat.type === 'group_temp' || chat.type === 'group_persist'
   const memberCount = chat.memberIds?.length ?? 0
@@ -224,44 +214,27 @@ export function GroupDetailsView() {
 
             {/* Description */}
             <GlassPanel variant="chip" className="mb-2 p-3">
-              {editingDesc ? (
-                <div className="flex items-center gap-2">
+              {isAdmin ? (
+                <div className="relative">
                   <input
-                    ref={descInputRef}
                     type="text"
-                    value={descText}
-                    onChange={(e) => setDescText(e.target.value)}
-                    onKeyDown={async (e) => {
-                      if (e.key === 'Enter') {
-                        if (activeChatId) {
-                          await appwriteChatService.updateChatDescription(activeChatId, descText)
-                          setEditingDesc(false)
-                        }
-                      }
-                      if (e.key === 'Escape') setEditingDesc(false)
-                    }}
-                    onBlur={async () => {
-                      if (activeChatId && descText !== (chat.description ?? '')) {
-                        await appwriteChatService.updateChatDescription(activeChatId, descText)
-                      }
-                      setEditingDesc(false)
-                    }}
-                    className="w-full bg-transparent text-xs text-white outline-none placeholder-[#A0A4A8]"
+                    defaultValue={chat?.description ?? ''}
                     placeholder="Add a group description..."
-                    autoFocus
+                    onBlur={(e) => {
+                      const val = e.target.value.trim()
+                      if (activeChatId && val !== (chat?.description ?? '')) {
+                        void appwriteChatService.updateChatDescription(activeChatId, val)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                    }}
+                    className="w-full bg-transparent text-xs italic text-[#A0A4A8] outline-none placeholder:text-[#A0A4A8]/50"
                   />
                 </div>
               ) : (
-                <p
-                  className={`text-xs italic ${isAdmin ? 'cursor-pointer hover:text-white' : ''} text-[#A0A4A8]`}
-                  onClick={() => {
-                    if (!isAdmin) return
-                    setDescText(chat.description ?? '')
-                    setEditingDesc(true)
-                    setTimeout(() => descInputRef.current?.focus(), 0)
-                  }}
-                >
-                  {chat.description || (isAdmin ? 'Tap to add a description...' : 'No description set')}
+                <p className="text-xs italic text-[#A0A4A8]">
+                  {chat?.description || 'No description set'}
                 </p>
               )}
             </GlassPanel>

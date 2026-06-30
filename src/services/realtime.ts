@@ -104,7 +104,7 @@ function payloadToChat(doc: Record<string, unknown>): Chat {
     hiddenForUserIds: (doc.hiddenForUserIds as string[] | undefined) ?? [],
     adminIds: (doc.adminIds as string[] | undefined) ?? undefined,
     expiresAt: (doc.expiresAt as string | null | undefined) ?? null,
-    description: (doc.description as string | undefined) ?? '',
+    description: (doc.description as string | null | undefined) ?? null,
   }
 }
 

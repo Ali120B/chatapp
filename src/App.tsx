@@ -205,6 +205,7 @@ export default function App() {
           [Query.equal('chatId', activeChatId), Query.limit(20)],
         )
         const now = Date.now()
+        const activeUserIds = new Set<string>()
         for (const doc of res.documents) {
           const expiresAt = doc.expiresAt as string
           const uid = doc.userId as string
@@ -214,6 +215,14 @@ export default function App() {
             removeTypingUser(activeChatId, uid)
           } else {
             addTypingUser(activeChatId, { userId: uid, username: uname })
+            activeUserIds.add(uid)
+          }
+        }
+        // Clean up local typing users no longer in DB (they stopped typing)
+        const localTyping = useTypingStore.getState().typingUsersByChatId[activeChatId] ?? []
+        for (const u of localTyping) {
+          if (u.userId !== user.userId && !activeUserIds.has(u.userId)) {
+            removeTypingUser(activeChatId, u.userId)
           }
         }
       } catch {

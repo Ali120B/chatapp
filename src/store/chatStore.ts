@@ -108,11 +108,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!user) return
 
     const existing = get().messagesByChatId[chatId] ?? []
-    // Use the oldest message's ID as cursor to fetch even older messages
     const cursor = loadMore && existing.length > 0 ? existing[0]?.$id : undefined
     const messages = await appwriteChatService.getMessages(chatId, user.userId, cursor)
     const merged = loadMore ? [...existing, ...messages] : messages
     const deduped = [...new Map(merged.map((m) => [m.$id, m])).values()]
+
+    // Detect new messages from others for unread count
+    if (!loadMore && existing.length > 0) {
+      const oldIds = new Set(existing.map((m) => m.$id))
+      const newFromOthers = deduped.filter((m) => !oldIds.has(m.$id) && m.senderId !== user.userId)
+      if (newFromOthers.length > 0) {
+        const ui = useUiStore.getState()
+        const isViewingChat = ui.isWindowOpen && ui.activeView === 'chat' && get().activeChatId === chatId
+        if (!isViewingChat) {
+          const next = (get().unreadCounts[chatId] ?? 0) + newFromOthers.length
+          set({
+            unreadCounts: { ...get().unreadCounts, [chatId]: next },
+            chats: get().chats.map((c) =>
+              c.$id === chatId ? { ...c, unreadCount: next } : c,
+            ),
+          })
+        }
+      }
+    }
+
     set({
       messagesByChatId: {
         ...get().messagesByChatId,
@@ -120,6 +139,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
           (a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime(),
         ),
       },
+    })
+  },
     })
   },
 

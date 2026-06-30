@@ -39,6 +39,7 @@ export function ChatView() {
   const sendPoll = useChatStore((s) => s.sendPoll)
   const votePoll = useChatStore((s) => s.votePoll)
   const addPollOptionToMessage = useChatStore((s) => s.addPollOptionToMessage)
+  const markMessagesRead = useChatStore((s) => s.markMessagesRead)
   const setView = useUiStore((s) => s.setView)
   const startForward = useUiStore((s) => s.startForward)
   const [showMenu, setShowMenu] = useState(false)

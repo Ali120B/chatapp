@@ -53,8 +53,11 @@ interface ChatState {
   purgeExpiredTempChats: () => Promise<void>
 }
 
-function saveUnreadToStorage(unreadCounts: Record<string, number>) {
-  try { localStorage.setItem('unreadCounts', JSON.stringify(unreadCounts)) } catch {}
+function saveUnreadToStorage(unreadCounts: Record<string, number>, lastMessageAts: Record<string, string>) {
+  try {
+    localStorage.setItem('unreadCounts', JSON.stringify(unreadCounts))
+    localStorage.setItem('lastMessageAts', JSON.stringify(lastMessageAts))
+  } catch {}
 }
 
 function loadUnreadFromStorage(): Record<string, number> {
@@ -64,7 +67,12 @@ function loadUnreadFromStorage(): Record<string, number> {
   } catch { return {} }
 }
 
-let chatsLoadedOnce = false
+function loadLastMessageAtsFromStorage(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem('lastMessageAts')
+    return raw ? JSON.parse(raw) : {}
+  } catch { return {} }
+}
 
 export const useChatStore = create<ChatState>((set, get) => ({
   chats: [],
@@ -87,30 +95,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const fetched = await appwriteChatService.getChats(user.userId)
     const uniqueChats = [...new Map(fetched.map((c) => [c.$id, c])).values()]
 
-    // Read CURRENT state right before set (avoids stale snapshot race)
-    const currentChats = get().chats
     const currentUnread = { ...get().unreadCounts }
     const activeChatId = get().activeChatId
+    const prevLastMsgAts = loadLastMessageAtsFromStorage()
+    const newLastMsgAts: Record<string, string> = {}
 
-    // Detect new messages for non-active chats (skip first load)
-    if (chatsLoadedOnce) {
-      for (const chat of uniqueChats) {
-        if (chat.$id === activeChatId) continue
-        const local = currentChats.find((c) => c.$id === chat.$id)
-        if (!local) {
-          // New chat we haven't seen — don't mark as unread
-          continue
-        }
-        const serverTime = new Date(chat.lastMessageAt ?? chat.createdAt).getTime()
-        const localTime = new Date(local.lastMessageAt ?? local.createdAt).getTime()
-        if (serverTime > localTime) {
+    for (const chat of uniqueChats) {
+      const serverTime = chat.lastMessageAt ?? chat.createdAt
+      newLastMsgAts[chat.$id] = serverTime
+
+      if (chat.$id === activeChatId) continue
+
+      // Compare against stored lastMessageAt (works on first load after restart)
+      const prevTime = prevLastMsgAts[chat.$id]
+      if (prevTime) {
+        const serverMs = new Date(serverTime).getTime()
+        const prevMs = new Date(prevTime).getTime()
+        if (serverMs > prevMs) {
           currentUnread[chat.$id] = (currentUnread[chat.$id] ?? 0) + 1
         }
       }
     }
-    chatsLoadedOnce = true
 
-    // Merge: keep local unread if higher than what we just computed
+    // Merge: keep local unread if higher
     for (const chat of uniqueChats) {
       const existing = get().unreadCounts[chat.$id] ?? 0
       if (existing > (currentUnread[chat.$id] ?? 0)) {
@@ -128,7 +135,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return bTime - aTime
     })
     set({ chats: mergedChats, unreadCounts: currentUnread, isLoading: false })
-    saveUnreadToStorage(currentUnread)
+    saveUnreadToStorage(currentUnread, newLastMsgAts)
   },
 
   selectChat: (chatId) => {
@@ -164,7 +171,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               c.$id === chatId ? { ...c, unreadCount: next } : c,
             ),
           })
-          saveUnreadToStorage(newUnread)
+          saveUnreadToStorage(newUnread, loadLastMessageAtsFromStorage())
         }
       }
     }
@@ -413,7 +420,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           c.$id === message.chatId ? { ...c, unreadCount: next } : c,
         ),
       })
-      saveUnreadToStorage(newUnread)
+      saveUnreadToStorage(newUnread, loadLastMessageAtsFromStorage())
     }
   },
 
@@ -425,7 +432,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         c.$id === chatId ? { ...c, unreadCount: 0 } : c,
       ),
     })
-    saveUnreadToStorage(newUnread)
+    saveUnreadToStorage(newUnread, loadLastMessageAtsFromStorage())
   },
 
   createGroup: async (name, memberIds, type = 'group_temp') => {

@@ -64,6 +64,11 @@ function loadUnreadFromStorage(): Record<string, number> {
   } catch { return {} }
 }
 
+// Track last-seen message per chat to detect new messages during polling
+const lastSeenMessageIds: Record<string, string> = {}
+
+let chatsLoadedOnce = false
+
 export const useChatStore = create<ChatState>((set, get) => ({
   chats: [],
   activeChatId: null,
@@ -82,29 +87,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return
     }
     await get().purgeExpiredTempChats()
-    const prev = get()
     const fetched = await appwriteChatService.getChats(user.userId)
     const uniqueChats = [...new Map(fetched.map((c) => [c.$id, c])).values()]
-    const unreadCounts: Record<string, number> = {}
+
+    // Read CURRENT state (not stale snapshot from start of async)
+    const currentChats = get().chats
+    const currentUnread = { ...get().unreadCounts }
+    const activeChatId = get().activeChatId
+
+    // For non-active chats, check if last message is new (skip first load)
+    if (chatsLoadedOnce) {
+      for (const chat of uniqueChats) {
+        if (chat.$id === activeChatId) continue
+        const local = currentChats.find((c) => c.$id === chat.$id)
+        if (!local) continue
+        const serverTime = new Date(chat.lastMessageAt ?? chat.createdAt).getTime()
+        const localTime = new Date(local.lastMessageAt ?? local.createdAt).getTime()
+        if (serverTime > localTime) {
+          currentUnread[chat.$id] = (currentUnread[chat.$id] ?? 0) + 1
+        }
+      }
+    }
+    chatsLoadedOnce = true
+
     const mergedChats = uniqueChats.map((chat) => {
-      const local = prev.chats.find((c) => c.$id === chat.$id)
-      const localUnread = prev.unreadCounts[chat.$id] ?? local?.unreadCount ?? 0
-      const serverUnread = chat.unreadCount ?? 0
-      // Always prefer the higher value — don't let server zero out local unread
-      const unread = Math.max(localUnread, serverUnread)
-      unreadCounts[chat.$id] = unread
       return {
         ...chat,
-        lastMessage: chat.lastMessage ?? local?.lastMessage,
-        lastMessageAt: chat.lastMessageAt ?? local?.lastMessageAt ?? chat.createdAt,
-        unreadCount: unread,
+        lastMessageAt: chat.lastMessageAt ?? chat.createdAt,
+        unreadCount: currentUnread[chat.$id] ?? 0,
       }
     }).sort((a, b) => {
       const aTime = new Date(a.lastMessageAt ?? a.createdAt).getTime()
       const bTime = new Date(b.lastMessageAt ?? b.createdAt).getTime()
       return bTime - aTime
     })
-    set({ chats: mergedChats, unreadCounts, isLoading: false })
+    set({ chats: mergedChats, unreadCounts: currentUnread, isLoading: false })
+    saveUnreadToStorage(currentUnread)
   },
 
   selectChat: (chatId) => {

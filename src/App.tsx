@@ -214,6 +214,52 @@ export default function App() {
     return () => clearInterval(interval)
   }, [isAuthenticated, user?.userId, addTypingUser, removeTypingUser])
 
+  // 1.5s read receipt poll — refreshes readBy status for active chat messages
+  useEffect(() => {
+    if (!isAuthenticated || !user) return
+    const pollReadReceipts = async () => {
+      const { activeChatId, messagesByChatId } = useChatStore.getState()
+      if (!activeChatId) return
+      const messages = messagesByChatId[activeChatId] ?? []
+      if (messages.length === 0) return
+      try {
+        // Fetch latest versions of messages to get updated readBy arrays
+        const msgIds = messages.slice(-20).map((m) => m.$id)
+        const updated = await Promise.all(
+          msgIds.map(async (id) => {
+            try {
+              const doc = await databases.getDocument(
+                APPWRITE_CONFIG.databaseId,
+                APPWRITE_CONFIG.collections.messages,
+                id,
+              )
+              return { id, readBy: (doc.readBy as string[] | undefined) ?? [] }
+            } catch {
+              return null
+            }
+          }),
+        )
+        for (const u of updated) {
+          if (!u) continue
+          const msg = messages.find((m) => m.$id === u.id)
+          if (!msg) continue
+          const existing = msg.readBy ?? []
+          const newReaders = u.readBy.filter((r) => !existing.includes(r))
+          if (newReaders.length > 0) {
+            useChatStore.getState().applyMessageUpdate({
+              ...msg,
+              readBy: [...existing, ...newReaders],
+            })
+          }
+        }
+      } catch {
+        // degrade
+      }
+    }
+    const interval = setInterval(pollReadReceipts, 1_500)
+    return () => clearInterval(interval)
+  }, [isAuthenticated, user?.userId])
+
   useEffect(() => {
     if (!isAuthenticated || !user) return
 

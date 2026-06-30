@@ -84,8 +84,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return {
         ...chat,
         lastMessage: chat.lastMessage ?? local?.lastMessage,
+        lastMessageAt: chat.lastMessageAt ?? local?.lastMessageAt ?? chat.createdAt,
         unreadCount: unread,
       }
+    }).sort((a, b) => {
+      const aTime = new Date(a.lastMessageAt ?? a.createdAt).getTime()
+      const bTime = new Date(b.lastMessageAt ?? b.createdAt).getTime()
+      return bTime - aTime
     })
     set({ chats: mergedChats, unreadCounts, isLoading: false })
   },
@@ -161,8 +166,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return {
           ...c,
           lastMessage: preview,
+          lastMessageAt: message.sentAt,
           ...(chat?.type === 'group_temp' ? { expiresAt: tempGroupExpiresAt() } : {}),
         }
+      }).sort((a, b) => {
+        const aTime = new Date(a.lastMessageAt ?? a.createdAt).getTime()
+        const bTime = new Date(b.lastMessageAt ?? b.createdAt).getTime()
+        return bTime - aTime
       }),
     })
   },
@@ -188,8 +198,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return {
           ...c,
           lastMessage: preview,
+          lastMessageAt: message.sentAt,
           ...(chat?.type === 'group_temp' ? { expiresAt: tempGroupExpiresAt() } : {}),
         }
+      }).sort((a, b) => {
+        const aTime = new Date(a.lastMessageAt ?? a.createdAt).getTime()
+        const bTime = new Date(b.lastMessageAt ?? b.createdAt).getTime()
+        return bTime - aTime
       }),
     })
   },
@@ -214,7 +229,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const chats = get().chats
     const existing = chats.find((c) => c.$id === incoming.$id)
     if (!existing) {
-      set({ chats: [incoming, ...chats] })
+      set({ chats: [{ ...incoming, lastMessageAt: incoming.lastMessageAt ?? incoming.createdAt }, ...chats].sort((a, b) => {
+        const aTime = new Date(a.lastMessageAt ?? a.createdAt).getTime()
+        const bTime = new Date(b.lastMessageAt ?? b.createdAt).getTime()
+        return bTime - aTime
+      }) })
       return
     }
     set({
@@ -224,10 +243,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
               ...c,
               ...incoming,
               lastMessage: c.lastMessage,
+              lastMessageAt: incoming.lastMessageAt ?? c.lastMessageAt ?? c.createdAt,
               unreadCount: c.unreadCount ?? get().unreadCounts[c.$id] ?? 0,
             }
           : c,
-      ),
+      ).sort((a, b) => {
+        const aTime = new Date(a.lastMessageAt ?? a.createdAt).getTime()
+        const bTime = new Date(b.lastMessageAt ?? b.createdAt).getTime()
+        return bTime - aTime
+      }),
     })
   },
 
@@ -309,8 +333,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return {
           ...c,
           lastMessage: preview,
+          lastMessageAt: message.sentAt,
           ...(c.type === 'group_temp' ? { expiresAt: tempGroupExpiresAt() } : {}),
         }
+      }).sort((a, b) => {
+        const aTime = new Date(a.lastMessageAt ?? a.createdAt).getTime()
+        const bTime = new Date(b.lastMessageAt ?? b.createdAt).getTime()
+        return bTime - aTime
       }),
     })
 

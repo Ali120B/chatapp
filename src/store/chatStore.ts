@@ -141,8 +141,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
       },
     })
   },
-    })
-  },
 
   sendMessage: async (content, imageFile, replyToId = null) => {
     const { activeChatId } = get()

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Message } from '@/types'
 import { GlassPanel } from '@/components/glass/GlassPanel'
 import { Avatar } from '@/components/common/Avatar'
+import { ImageLightbox } from '@/components/common/ImageLightbox'
 import { MessageContextMenu, type AnchorRect } from './MessageContextMenu'
 import { ReactionPopup } from './ReactionPopup'
 import { PollMessage } from './PollMessage'
@@ -122,6 +123,7 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const [reactionPopupEmoji, setReactionPopupEmoji] = useState<string | null>(null)
   const [reactionPopupRect, setReactionPopupRect] = useState<DOMRect | null>(null)
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null)
   const time = formatTime(message.sentAt)
   const isPoll = message.messageType === 'poll' && message.pollData
   const isShort = !isPoll && displayContent.length < 28 && !replyQuote && !message.editedAt
@@ -192,7 +194,8 @@ export function MessageBubble({
             <img 
               src={String(imageUrl)} 
               alt="Attached" 
-              className="mb-1 max-h-[180px] max-w-[180px] rounded object-cover" 
+              className="mb-1 max-h-[180px] max-w-[180px] cursor-pointer rounded object-cover transition-opacity hover:opacity-80"
+              onClick={(e) => { e.stopPropagation(); setLightboxSrc(String(imageUrl)) }} 
             />
           )}
           {isPoll && message.pollData ? (
@@ -261,6 +264,7 @@ export function MessageBubble({
           />
         )}
       </div>
+      {lightboxSrc && <ImageLightbox src={lightboxSrc} onClose={() => setLightboxSrc(null)} />}
     </div>
   )
 }

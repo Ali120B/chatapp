@@ -3,6 +3,7 @@ import type { Message } from '@/types'
 import { GlassPanel } from '@/components/glass/GlassPanel'
 import { Avatar } from '@/components/common/Avatar'
 import { MessageContextMenu, type AnchorRect } from './MessageContextMenu'
+import { ReactionPopup } from './ReactionPopup'
 import { PollMessage } from './PollMessage'
 import { DateSeparator } from './DateSeparator'
 import { storage, APPWRITE_CONFIG } from '@/services/appwrite'
@@ -70,6 +71,7 @@ interface MessageBubbleProps {
   selectionMode?: boolean
   onSelect?: (msg: Message) => void
   onContextMenu: (e: React.MouseEvent, msg: Message, anchorRect: AnchorRect) => void
+  onReact?: (msg: Message, emoji: string) => void
   onVotePoll?: (msg: Message, optionIds: string[]) => Promise<void>
   onAddPollOption?: (msg: Message, text: string) => Promise<void>
 }
@@ -114,9 +116,12 @@ export function MessageBubble({
   selectionMode = false,
   onSelect,
   onContextMenu,
+  onReact,
   onVotePoll,
   onAddPollOption,
 }: MessageBubbleProps) {
+  const [reactionPopupEmoji, setReactionPopupEmoji] = useState<string | null>(null)
+  const [reactionPopupRect, setReactionPopupRect] = useState<DOMRect | null>(null)
   const time = formatTime(message.sentAt)
   const isPoll = message.messageType === 'poll' && message.pollData
   const isShort = !isPoll && displayContent.length < 28 && !replyQuote && !message.editedAt
@@ -228,16 +233,32 @@ export function MessageBubble({
         {reactionEntries.length > 0 && (
           <div className={`mt-0.5 flex flex-wrap gap-1 ${isSelf ? 'justify-end' : 'justify-start'}`}>
             {reactionEntries.map(([emoji, users]) => (
-              <span
+              <button
                 key={emoji}
-                className={`glass-chip rounded-full px-1.5 py-0.5 text-[10px] ${
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                  setReactionPopupEmoji(emoji)
+                  setReactionPopupRect(rect)
+                }}
+                className={`glass-chip rounded-full px-1.5 py-0.5 text-[10px] transition-transform hover:scale-105 ${
                   users.includes(currentUserId) ? 'ring-1 ring-[var(--color-accent)]/60' : ''
                 }`}
               >
                 {emoji} {users.length}
-              </span>
+              </button>
             ))}
           </div>
+        )}
+        {reactionPopupEmoji && reactionPopupRect && (
+          <ReactionPopup
+            reactions={message.reactions ?? {}}
+            currentUserId={currentUserId}
+            anchorRect={reactionPopupRect}
+            onClose={() => { setReactionPopupEmoji(null); setReactionPopupRect(null) }}
+            onRemoveReaction={(emoji) => onReact?.(message, emoji)}
+          />
         )}
       </div>
     </div>
@@ -457,6 +478,7 @@ export function MessageList({
                 selectionMode={selectionMode}
                 onSelect={onToggleMessageSelect}
                 onContextMenu={handleContextMenu}
+                onReact={onReact}
                 onVotePoll={onVotePoll}
                 onAddPollOption={onAddPollOption}
               />

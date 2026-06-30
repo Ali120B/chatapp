@@ -19,15 +19,21 @@ export function toggleReaction(
   emoji: string,
   userId: string,
 ): MessageReactions {
-  const next = { ...reactions }
-  const users = [...(next[emoji] ?? [])]
-  const idx = users.indexOf(userId)
-  if (idx >= 0) {
-    users.splice(idx, 1)
-    if (users.length === 0) delete next[emoji]
-    else next[emoji] = users
+  const next: MessageReactions = {}
+  // Copy existing reactions, removing this user from ALL emojis first
+  for (const [e, users] of Object.entries(reactions)) {
+    const filtered = users.filter((u) => u !== userId)
+    if (filtered.length > 0) next[e] = filtered
+  }
+  // If user already reacted with this emoji, remove it (toggle off)
+  const existing = next[emoji] ?? []
+  if (existing.includes(userId)) {
+    const filtered = existing.filter((u) => u !== userId)
+    if (filtered.length > 0) next[emoji] = filtered
+    else delete next[emoji]
   } else {
-    next[emoji] = [...users, userId]
+    // Add this reaction
+    next[emoji] = [...existing, userId]
   }
   return next
 }

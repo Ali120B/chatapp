@@ -350,15 +350,16 @@ export default function App() {
     const unsubscribeGlobalFocus = window.electronAPI?.onGlobalFocusShortcut?.(focusAppOrInput)
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === '/' && isAuthenticated) {
+      if (e.key === '/' && isWindowOpen && isAuthenticated) {
         const input = document.querySelector<HTMLInputElement>('[aria-label="Message input"]')
         if (document.activeElement !== input) {
           e.preventDefault()
-          if (!isWindowOpen) {
-            useUiStore.getState().openWindow()
-          }
           focusMessageInput()
         }
+      }
+      if (e.altKey && e.shiftKey && e.code === 'Space') {
+        e.preventDefault()
+        focusAppOrInput()
       }
       if (e.key === 'Escape' && isWindowOpen) {
         useUiStore.getState().closeWindow()

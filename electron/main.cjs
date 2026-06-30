@@ -82,7 +82,7 @@ function createTray() {
 
 function registerGlobalShortcuts() {
   globalShortcut.unregisterAll()
-  const registered = globalShortcut.register('Slash', handleGlobalFocusShortcut)
+  const registered = globalShortcut.register('/', handleGlobalFocusShortcut)
   if (!registered) {
     console.warn('Failed to register / global shortcut')
   }

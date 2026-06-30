@@ -79,6 +79,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const local = prev.chats.find((c) => c.$id === chat.$id)
       const localUnread = prev.unreadCounts[chat.$id] ?? local?.unreadCount ?? 0
       const serverUnread = chat.unreadCount ?? 0
+      // Always prefer the higher value — don't let server zero out local unread
       const unread = Math.max(localUnread, serverUnread)
       unreadCounts[chat.$id] = unread
       return {
@@ -343,9 +344,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }),
     })
 
-    if (isSelf || isViewingChat) {
+    if (isSelf) return
+    if (isViewingChat) {
       get().markChatRead(message.chatId)
-      if (isViewingChat) void get().markMessagesRead(message.chatId)
+      void get().markMessagesRead(message.chatId)
     } else {
       const next = (unreadCounts[message.chatId] ?? 0) + 1
       set({

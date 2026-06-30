@@ -15,6 +15,7 @@ import { useChatStore } from '@/store/chatStore'
 import { useUiStore } from '@/store/uiStore'
 import { useThemeStore } from '@/store/themeStore'
 import { useTypingStore } from '@/store/typingStore'
+import { useFriendsStore } from '@/store/friendsStore'
 import { useElectronResize } from '@/hooks/useElectronResize'
 import { useMousePassthrough } from '@/hooks/useMousePassthrough'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
@@ -117,6 +118,15 @@ export default function App() {
     const interval = setInterval(() => void purgeExpiredTempChats(), 60_000)
     return () => clearInterval(interval)
   }, [isAuthenticated, loadChats, purgeExpiredTempChats])
+
+  // 5s friends polling — requests and friend list
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const loadFriends = useFriendsStore.getState().loadFriends
+    void loadFriends()
+    const interval = setInterval(() => void loadFriends(), 5_000)
+    return () => clearInterval(interval)
+  }, [isAuthenticated])
 
   // Presence heartbeat
   useEffect(() => {

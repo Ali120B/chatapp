@@ -299,6 +299,7 @@ export function MessageList({
   const scrollRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const previousChatIdRef = useRef<string | null>(null)
+  const hasScrolledRef = useRef(false)
   const latestMessageId = messages[messages.length - 1]?.$id
 
   const messageById = Object.fromEntries(messages.map((m) => [m.$id, m]))
@@ -323,18 +324,34 @@ export function MessageList({
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    const isNewlyOpenedChat = previousChatIdRef.current !== chatId
-    previousChatIdRef.current = chatId
+    const chatChanged = previousChatIdRef.current !== chatId
+    if (chatChanged) {
+      previousChatIdRef.current = chatId
+      hasScrolledRef.current = false
+    }
 
     const scrollToBottom = () => bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
 
-    if (isNewlyOpenedChat) {
-      // Immediate + delayed re-scrolls to catch async content
+    if (chatChanged && messages.length > 0 && !hasScrolledRef.current) {
+      hasScrolledRef.current = true
       scrollToBottom()
       const t1 = setTimeout(scrollToBottom, 150)
       const t2 = setTimeout(scrollToBottom, 400)
       const t3 = setTimeout(scrollToBottom, 800)
       return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+    }
+
+    if (chatChanged && messages.length === 0) {
+      const t = setTimeout(scrollToBottom, 500)
+      return () => clearTimeout(t)
+    }
+
+    if (!chatChanged && !hasScrolledRef.current && messages.length > 0) {
+      hasScrolledRef.current = true
+      scrollToBottom()
+      const t1 = setTimeout(scrollToBottom, 150)
+      const t2 = setTimeout(scrollToBottom, 400)
+      return () => { clearTimeout(t1); clearTimeout(t2) }
     }
 
     // New message arrived — only scroll if user was near bottom

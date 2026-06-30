@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { GlassPanel } from '@/components/glass/GlassPanel'
+import { Avatar } from '@/components/common/Avatar'
 import { useChatStore } from '@/store/chatStore'
 import { useFriendsStore } from '@/store/friendsStore'
 import { useUiStore } from '@/store/uiStore'
@@ -87,7 +88,7 @@ export function CreateGroupModal({ onClose, variant = 'temp' }: CreateGroupModal
                 className={`mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm
                   ${selected.has(f.userId) ? 'bg-[#00B4FF]/20 text-[#00B4FF]' : 'text-white hover:bg-white/8'}`}
               >
-                <img src={f.avatarUrl} alt="" className="h-6 w-6 rounded-full" />
+                <Avatar src={f.avatarUrl} name={f.username} size="xs" />
                 {f.username}
               </button>
             </li>

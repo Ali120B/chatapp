@@ -13,7 +13,7 @@ export async function updateUserAvatar(userId: string, file: File): Promise<stri
 
   const bucket = APPWRITE_CONFIG.storageBucket
   const uploaded = await storage.createFile(bucket, ID.unique(), file)
-  const avatarUrl = storage.getFilePreview(bucket, uploaded.$id)
+  const avatarUrl = String(storage.getFilePreview(bucket, uploaded.$id))
 
   await databases.updateDocument(
     APPWRITE_CONFIG.databaseId,

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { avatarInitial } from '@/utils/avatar'
 
 const sizeClasses = {
@@ -15,13 +16,17 @@ interface AvatarProps {
 }
 
 export function Avatar({ src, name, size = 'md', className = '' }: AvatarProps) {
+  const [imgError, setImgError] = useState(false)
   const sizeClass = sizeClasses[size]
 
-  if (src) {
+  const isValidSrc = src && src.length > 5 && !src.startsWith('[') && !imgError
+
+  if (isValidSrc) {
     return (
       <img
         src={src}
         alt=""
+        onError={() => setImgError(true)}
         className={`${sizeClass} shrink-0 rounded-full object-cover ${className}`}
       />
     )
